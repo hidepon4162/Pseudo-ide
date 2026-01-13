@@ -353,6 +353,7 @@ PRINT sum
           if (isEmpty(line)) continue;
 
           const mIf = line.match(/^IF\s+(.+)\s+THEN$/i);
+          const mElse = line.match(/^ELSE$/i);
           const mEndIf = line.match(/^ENDIF$/i);
 
           const mFor = line.match(
@@ -363,25 +364,63 @@ PRINT sum
           const mWhile = line.match(/^WHILE\s+(.+)$/i);
           const mEndWhile = line.match(/^ENDWHILE$/i);
 
+          // --- IF ---
           if (mIf) {
             prog.push({
               op: "IF",
               cond: mIf[1],
-              jmpFalse: null,
+              jmpFalse: null, // 後で確定（ELSEがあればELSE直後、無ければENDIF直後）
               srcLine: i + 1,
             });
-            stack.push({ type: "IF", at: prog.length - 1 });
+            stack.push({ type: "IF", at: prog.length - 1, elseJmpAt: null });
             continue;
           }
+
+          // --- ELSE ---
+          if (mElse) {
+            const top = stack[stack.length - 1];
+            if (!top || top.type !== "IF") {
+              throw new Error(`ELSE の対応がありません（行 ${i + 1}）`);
+            }
+            if (top.elseJmpAt != null) {
+              throw new Error(
+                `ELSE は IF ブロック内で1回だけです（行 ${i + 1}）`
+              );
+            }
+
+            // IF が偽のときに飛ぶ先＝ELSE直後（このJMP命令の次）
+            prog[top.at].jmpFalse = prog.length + 1;
+
+            // THEN側を実行し終えたら ENDIF の次へ飛ぶ
+            prog.push({ op: "JMP", to: null, srcLine: i + 1 });
+            top.elseJmpAt = prog.length - 1;
+
+            continue;
+          }
+
+          // --- ENDIF ---
           if (mEndIf) {
             const top = stack.pop();
-            if (!top || top.type !== "IF")
+            if (!top || top.type !== "IF") {
               throw new Error(`ENDIF の対応がありません（行 ${i + 1}）`);
-            prog[top.at].jmpFalse = prog.length;
+            }
+
+            // ENDIF の次の命令位置（ここに確定）
+            const endPos = prog.length + 1; // このあと NOP を積むので +1
+
+            // ELSEが無い場合、IF偽ジャンプ先は ENDIF の次（NOPの次）にする
+            if (top.elseJmpAt == null) {
+              prog[top.at].jmpFalse = endPos;
+            } else {
+              // ELSEがある場合、ELSEで積んだJMPの飛び先を ENDIFの次にする
+              prog[top.elseJmpAt].to = endPos;
+            }
+
             prog.push({ op: "NOP", srcLine: i + 1 });
             continue;
           }
 
+          // --- FOR ---
           if (mFor) {
             const varName = mFor[1];
             prog.push({
@@ -404,6 +443,7 @@ PRINT sum
             continue;
           }
 
+          // --- WHILE ---
           if (mWhile) {
             prog.push({
               op: "WHILE",
@@ -423,18 +463,21 @@ PRINT sum
             continue;
           }
 
+          // --- PRINT ---
           const mPrint = line.match(/^PRINT\s+(.+)$/i);
           if (mPrint) {
             prog.push({ op: "PRINT", expr: mPrint[1], srcLine: i + 1 });
             continue;
           }
 
+          // --- INPUT ---
           const mInput = line.match(/^INPUT\s+([A-Za-z_]\w*)$/i);
           if (mInput) {
             prog.push({ op: "INPUT", varName: mInput[1], srcLine: i + 1 });
             continue;
           }
 
+          // --- 配列代入 ---
           const mAssignArr = line.match(
             /^([A-Za-z_]\w*)\s*\[\s*(.+)\s*\]\s*←\s*(.+)$/
           );
@@ -449,6 +492,7 @@ PRINT sum
             continue;
           }
 
+          // --- 変数代入 ---
           const mAssign = line.match(/^([A-Za-z_]\w*)\s*←\s*(.+)$/);
           if (mAssign) {
             prog.push({
