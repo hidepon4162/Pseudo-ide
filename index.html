@@ -159,7 +159,7 @@
         </div>
 
         <div class="status">
-          対応: 代入 / IF / FOR / WHILE / PRINT / INPUT / 配列(A[i])（1始まり）
+          対応: 代入 / IF / FOR / WHILE / PRINT / INPUT / 配列(A[i])（1始まり） / 配列初期化(A = [ 5, 2, 4, 1, 3 ]) / LENGTH(A)（要素数）
           <br />
           科目B寄せ: 未代入=0 / 添字は1以上 / 変数と配列の同名は禁止 /
           配列名をスカラとして使うとエラー
@@ -240,8 +240,27 @@ A[3] ← A[1] + A[2]
 PRINT A[3]
 → 出力: 30
 
+■ 配列の初期化（A = [ 5, 2, 4, 1, 3 ]）
+A = [ 5, 2, 4, 1, 3 ]
+# または A ← [ 5, 2, 4, 1, 3 ]
+PRINT A[1]
+PRINT A[3]
+→ 出力: 5, 4
+
+■ LENGTH関数（配列の要素数を返す）
+A = [ 5, 2, 4, 1, 3 ]
+PRINT LENGTH(A)
+→ 出力: 5
+
+# FOR文と組み合わせ（超頻出パターン）
+A = [ 10, 20, 30 ]
+FOR i ← 1 TO LENGTH(A)
+  PRINT A[i]
+ENDFOR
+→ 出力: 10, 20, 30
+
 補足:
-- 代入は「←」です（= ではありません）
+- 代入は「←」です（= も使用可能）
 - 比較: = != < <= > >=
 - 論理: AND OR NOT / XOR（0/1想定）
 
@@ -254,11 +273,25 @@ PRINT A[3]
 
       $("help").textContent = HELP_TEXT;
 
-      $("code").value = `# 配列の動作確認（未代入は0）
-A[1] ← 10
-A[2] ← 20
-A[3] ← A[1] + A[2]
+      $("code").value = `# 配列の初期化
+A = [ 5, 2, 4, 1, 3 ]
+PRINT A[1]
+PRINT A[2]
 PRINT A[3]
+
+# LENGTH関数（配列の要素数）
+PRINT LENGTH(A)
+
+# FOR文とLENGTHの組み合わせ（科目B頻出）
+FOR i ← 1 TO LENGTH(A)
+  PRINT A[i]
+ENDFOR
+
+# 配列の動作確認（未代入は0）
+B[1] ← 10
+B[2] ← 20
+B[3] ← B[1] + B[2]
+PRINT B[3]
 
 # FORの動作確認（15）
 sum ← 0
@@ -289,56 +322,72 @@ PRINT sum
       function compileExpr(expr) {
         expr = normalizeExpr(expr);
 
+        const saved = [];
+        const saveStr = (strLiteralWithQuotes) => {
+          const key = `__STR${saved.length}__`;
+          saved.push(strLiteralWithQuotes);
+          return key;
+        };
+
+        // 1) もともと式に含まれていた文字列リテラルを保護
+        expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
+
+        // 2) LENGTH(A) を処理（配列アクセスの前に処理）
+        expr = expr.replace(
+          /\bLENGTH\s*\(\s*([A-Za-z_]\w*)\s*\)/gi,
+          (_, arrName) => `getLength("${arrName}")`
+        );
+
+        // 3) 配列アクセス A[i] を getArr("A", i) に変換（idxExpr は再帰コンパイル）
         expr = expr.replace(
           /([A-Za-z_]\w*)\s*\[\s*([^\]]+)\s*\]/g,
           (_, name, idxExpr) => `getArr("${name}", (${compileExpr(idxExpr)}))`
         );
 
-        const saved = [];
-        expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => {
-          const key = `__STR${saved.length}__`;
-          saved.push(m);
-          return key;
-        });
+        // 4) ここまでの変換で新たに生成された "A" なども保護しないと、
+        //    後段の変数置換で A が getVar("A") に変換されて構文エラーになる
+        expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
 
         expr = expr.replace(/([^=!<>])=([^=])/g, "$1===$2");
 
         expr = expr.replace(/\b([A-Za-z_]\w*)\b/g, (m, name) => {
-          const upper = name.toUpperCase();
-          if (
-            [
-              "IF",
-              "THEN",
-              "ENDIF",
-              "FOR",
-              "TO",
-              "ENDFOR",
-              "WHILE",
-              "ENDWHILE",
-              "PRINT",
-              "INPUT",
-              "TRUE",
-              "FALSE",
-              "NULL",
-              "UNDEFINED",
-              "GETVAR",
-              "GETARR",
-            ].includes(upper)
-          )
-            return m;
+            const upper = name.toUpperCase();
+            if (
+              [
+                "IF",
+                "THEN",
+                "ENDIF",
+                "FOR",
+                "TO",
+                "ENDFOR",
+                "WHILE",
+                "ENDWHILE",
+                "PRINT",
+                "INPUT",
+                "TRUE",
+                "FALSE",
+                "NULL",
+                "UNDEFINED",
+                "GETVAR",
+                "GETARR",
+                "GETLENGTH",
+                "LENGTH",
+              ].includes(upper)
+            )
+              return m;
 
-          if (/^__STR\d+__$/.test(name)) return m;
+            if (/^__STR\d+__$/.test(name)) return m;
 
-          return `getVar("${name}")`;
-        });
+            return `getVar("${name}")`;
+          });
 
-        expr = expr.replace(/__STR(\d+)__/g, (_, i) => saved[Number(i)]);
-        return expr;
+          expr = expr.replace(/__STR(\d+)__/g, (_, i) => saved[Number(i)]);
+          return expr;
       }
 
       function safeEval(jsExpr, ctx) {
-        const f = new Function("getVar", "getArr", `return (${jsExpr});`);
-        return f(ctx.getVar, ctx.getArr);
+        const f = new Function("getVar", "getArr", "getLength", `return (${jsExpr});`);
+        return f(ctx.getVar, ctx.getArr, ctx.getLength);
       }
 
       function parseProgram(code) {
@@ -477,6 +526,27 @@ PRINT sum
             continue;
           }
 
+          // --- 配列初期化（A = [ 5, 2, 4, 1, 3 ] または A ← [ 5, 2, 4, 1, 3 ]） ---
+          const mArrInit = line.match(
+            /^([A-Za-z_]\w*)\s*(?:←|=)\s*\[\s*(.+)\s*\]$/
+          );
+          if (mArrInit) {
+            const arrName = mArrInit[1];
+            const arrContent = mArrInit[2].trim();
+            // カンマ区切りの要素を抽出
+            const elements = arrContent
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0);
+            prog.push({
+              op: "ASSIGN_ARR_INIT",
+              arrName,
+              elements,
+              srcLine: i + 1,
+            });
+            continue;
+          }
+
           // --- 配列代入 ---
           const mAssignArr = line.match(
             /^([A-Za-z_]\w*)\s*\[\s*(.+)\s*\]\s*←\s*(.+)$/
@@ -598,11 +668,25 @@ PRINT sum
           env.arr[name][i] = value;
         }
 
+        function getLength(name, srcLine) {
+          ensureKindArr(name, srcLine);
+          if (!env.arr[name] || Object.keys(env.arr[name]).length === 0) {
+            return 0;
+          }
+          // 配列の最大インデックスを取得（1始まりなので、それが要素数）
+          const indices = Object.keys(env.arr[name])
+            .map(Number)
+            .filter((i) => i >= 1);
+          if (indices.length === 0) return 0;
+          return Math.max(...indices);
+        }
+
         function evalExpr(expr, srcLine) {
           const js = compileExpr(expr);
           const v = safeEval(js, {
             getVar: (n) => getVarWithLine(n, srcLine),
             getArr: (n, i) => getArr(n, i, srcLine),
+            getLength: (n) => getLength(n, srcLine),
           });
           if (typeof v === "boolean") return v ? 1 : 0;
           if (typeof v === "number") return v;
@@ -633,6 +717,19 @@ PRINT sum
               const idx = evalExpr(ins.idx, ins.srcLine);
               const v = evalExpr(ins.expr, ins.srcLine);
               setArr(ins.arrName, idx, v, ins.srcLine);
+              pc++;
+              break;
+            }
+            case "ASSIGN_ARR_INIT": {
+              // 配列を初期化（要素は1始まりのインデックスで設定）
+              ensureKindArr(ins.arrName, ins.srcLine);
+              if (!env.arr[ins.arrName]) env.arr[ins.arrName] = {};
+              for (let i = 0; i < ins.elements.length; i++) {
+                const elementExpr = ins.elements[i];
+                const value = evalExpr(elementExpr, ins.srcLine);
+                const idx = i + 1; // 1始まり
+                env.arr[ins.arrName][idx] = value;
+              }
               pc++;
               break;
             }
