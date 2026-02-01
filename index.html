@@ -1,201 +1,217 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>擬似言語IDE（科目B向け・簡易実行器）</title>
-    <style>
-      :root {
-        --bg: #0b0f14;
-        --panel: #111824;
-        --line: #223044;
-        --text: #e6edf3;
-        --muted: #9fb0c0;
-      }
-      body {
-        margin: 0;
-        font-family: system-ui, -apple-system, "Noto Sans JP", sans-serif;
-        background: var(--bg);
-        color: var(--text);
-      }
-      header {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--line);
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      header strong {
-        color: var(--muted);
-        font-weight: 700;
-      }
-      .btn {
-        background: #1d2a3d;
-        border: 1px solid var(--line);
-        color: var(--text);
-        padding: 8px 12px;
-        border-radius: 12px;
-        cursor: pointer;
-        font-weight: 700;
-      }
-      .btn:hover {
-        filter: brightness(1.05);
-      }
-      .pill {
-        padding: 4px 10px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        color: var(--muted);
-        font-weight: 700;
-      }
 
-      .wrap {
-        display: grid;
-        grid-template-columns: 1.2fr 0.8fr;
-        gap: 12px;
-        padding: 12px;
-        height: calc(100vh - 66px);
-        box-sizing: border-box;
-      }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-      }
-      .card h2 {
-        margin: 0;
-        padding: 10px 12px;
-        font-size: 12px;
-        color: var(--muted);
-        border-bottom: 1px solid var(--line);
-      }
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>擬似言語IDE（科目B向け・簡易実行器）</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #111824;
+      --line: #223044;
+      --text: #e6edf3;
+      --muted: #9fb0c0;
+    }
 
-      textarea,
-      pre {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        border: 0;
-        outline: none;
-        background: transparent;
-        color: var(--text);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Noto Sans Mono CJK JP", monospace;
-        font-size: 13px;
-        line-height: 1.5;
-        padding: 12px;
-        box-sizing: border-box;
-        overflow: auto;
-        white-space: pre-wrap;
-      }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
 
-      .right {
-        display: grid;
-        grid-template-rows: 1fr 1fr 1.6fr auto;
-        gap: 12px;
-        min-height: 0;
-      }
-      .row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        height: 180px;
-      }
-      .status {
-        padding: 10px 12px;
-        border-top: 1px solid var(--line);
-        color: var(--muted);
-        font-size: 12px;
-      }
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
 
-      /* ====== 行ハイライト用 ====== */
-      .codeWrap {
-        position: relative;
-        height: 100%;
-        min-height: 0;
-      }
-      #lineHighlight {
-        position: absolute;
-        left: 8px;
-        right: 8px;
-        height: 20px; /* JSで実測し上書き */
-        top: 0px; /* JSで更新 */
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 10px;
-        pointer-events: none;
-        display: none;
-      }
-      #code {
-        position: relative;
-        z-index: 1;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <strong>擬似言語IDE（簡易）</strong>
-      <button class="btn" id="runBtn">実行</button>
-      <button class="btn" id="stepBtn">ステップ</button>
-      <button class="btn" id="resetBtn">リセット</button>
-      <button class="btn" id="helpBtn">使い方（先頭へ戻る）</button>
-      <span class="pill" id="pcInfo">PC: -</span>
-      <span class="pill" id="lineInfo">行: -</span>
-      <span class="pill" id="stateInfo">状態: -</span>
-    </header>
+    header strong {
+      color: var(--muted);
+      font-weight: 700;
+    }
 
-    <div class="wrap">
-      <div class="card">
-        <h2>コード</h2>
+    .btn {
+      background: #1d2a3d;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
 
-        <div class="codeWrap">
-          <div id="lineHighlight"></div>
-          <textarea id="code"></textarea>
-        </div>
+    .btn:hover {
+      filter: brightness(1.05);
+    }
 
-        <div class="status">
-          対応: 代入 / IF / FOR / WHILE / PRINT / INPUT / 配列(A[i])（1始まり） / 配列初期化(A = [ 5, 2, 4, 1, 3 ]) / LENGTH(A)（要素数）
-          <br />
-          科目B寄せ: 未代入=0 / 添字は1以上 / 変数と配列の同名は禁止 /
-          配列名をスカラとして使うとエラー
-        </div>
+    .pill {
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .wrap {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+      padding: 12px;
+      height: calc(100vh - 66px);
+      box-sizing: border-box;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .card h2 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+    }
+
+    textarea,
+    pre {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Noto Sans Mono CJK JP", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 12px;
+      box-sizing: border-box;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    .right {
+      display: grid;
+      grid-template-rows: 1fr 1fr 1.6fr auto;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 180px;
+    }
+
+    .status {
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* ====== 行ハイライト用 ====== */
+    .codeWrap {
+      position: relative;
+      height: 100%;
+      min-height: 0;
+    }
+
+    #lineHighlight {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      height: 20px;
+      /* JSで実測し上書き */
+      top: 0px;
+      /* JSで更新 */
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      pointer-events: none;
+      display: none;
+    }
+
+    #code {
+      position: relative;
+      z-index: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <strong>擬似言語IDE（簡易）</strong>
+    <button class="btn" id="runBtn">実行</button>
+    <button class="btn" id="stepBtn">ステップ</button>
+    <button class="btn" id="resetBtn">リセット</button>
+    <button class="btn" id="helpBtn">使い方（先頭へ戻る）</button>
+    <span class="pill" id="pcInfo">PC: -</span>
+    <span class="pill" id="lineInfo">行: -</span>
+    <span class="pill" id="stateInfo">状態: -</span>
+  </header>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>コード</h2>
+
+      <div class="codeWrap">
+        <div id="lineHighlight"></div>
+        <textarea id="code"></textarea>
       </div>
 
-      <div class="right">
-        <div class="card">
-          <h2>変数</h2>
-          <pre id="vars"></pre>
-        </div>
-        <div class="card">
-          <h2>出力</h2>
-          <pre id="out"></pre>
-        </div>
-        <div class="card">
-          <h2>使い方サンプル</h2>
-          <pre id="help"></pre>
-        </div>
-        <div class="row">
-          <div class="card">
-            <h2>入力（INPUT 用。改行区切り）</h2>
-            <textarea id="inp"></textarea>
-          </div>
-          <div class="card">
-            <h2>エラー</h2>
-            <pre id="err"></pre>
-          </div>
-        </div>
+      <div class="status">
+        対応: 代入 / IF / FOR / WHILE / PRINT / INPUT / 配列(A[i])（1始まり） / 配列初期化(A = [ 5, 2, 4, 1, 3 ]) / LENGTH(A)（要素数）
+        <br />
+        科目B寄せ: 未代入=0 / 添字は1以上 / 変数と配列の同名は禁止 /
+        配列名をスカラとして使うとエラー
       </div>
     </div>
 
-    <script>
-      const $ = (id) => document.getElementById(id);
+    <div class="right">
+      <div class="card">
+        <h2>変数</h2>
+        <pre id="vars"></pre>
+      </div>
+      <div class="card">
+        <h2>出力</h2>
+        <pre id="out"></pre>
+      </div>
+      <div class="card">
+        <h2>使い方サンプル</h2>
+        <pre id="help"></pre>
+      </div>
+      <div class="row">
+        <div class="card">
+          <h2>入力（INPUT 用。改行区切り）</h2>
+          <textarea id="inp"></textarea>
+        </div>
+        <div class="card">
+          <h2>エラー</h2>
+          <pre id="err"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      const HELP_TEXT = `【擬似言語IDEの使い方】
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const HELP_TEXT = `【擬似言語IDEの使い方】
 
 1) 左の「コード」に擬似言語を書きます
 2) 右下の「入力」に INPUT 用の値を改行区切りで入れます
@@ -262,7 +278,7 @@ ENDFOR
 補足:
 - 代入は「←」です（= も使用可能）
 - 比較: = != < <= > >=
-- 論理: AND OR NOT / XOR（0/1想定）
+- 論理: AND OR NOT（TRUE/FALSE） / XOR（0/1の排他的論理和。TRUE/FALSE でも可、結果は 0/1）
 
 科目B寄せルール:
 - 未代入の変数・配列要素は 0 として扱います
@@ -271,9 +287,9 @@ ENDFOR
 - 配列名(A)を数値として使うとエラーになります（例: C ← A + 1 は不可）
 `;
 
-      $("help").textContent = HELP_TEXT;
+    $("help").textContent = HELP_TEXT;
 
-      $("code").value = `# 配列の初期化
+    $("code").value = `# 配列の初期化
 A = [ 5, 2, 4, 1, 3 ]
 PRINT A[1]
 PRINT A[2]
@@ -301,648 +317,651 @@ ENDFOR
 PRINT sum
 `;
 
-      $("inp").value = "";
+    $("inp").value = "";
 
-      function stripComment(line) {
-        const idx = line.indexOf("#");
-        return (idx >= 0 ? line.slice(0, idx) : line).trim();
-      }
-      function isEmpty(line) {
-        return !line || line.trim() === "";
-      }
+    function stripComment(line) {
+      const idx = line.indexOf("#");
+      return (idx >= 0 ? line.slice(0, idx) : line).trim();
+    }
+    function isEmpty(line) {
+      return !line || line.trim() === "";
+    }
 
-      function normalizeExpr(expr) {
-        return expr
-          .replace(/\bAND\b/gi, " && ")
-          .replace(/\bOR\b/gi, " || ")
-          .replace(/\bNOT\b/gi, " ! ")
-          .replace(/\bXOR\b/gi, " ^ ");
-      }
+    function normalizeExpr(expr) {
+      return expr
+        .replace(/\bAND\b/gi, " && ")
+        .replace(/\bOR\b/gi, " || ")
+        .replace(/\bNOT\b/gi, " ! ")
+        .replace(/\bXOR\b/gi, " ^ ");
+    }
 
-      function compileExpr(expr) {
-        expr = normalizeExpr(expr);
+    function compileExpr(expr) {
+      expr = normalizeExpr(expr);
 
-        const saved = [];
-        const saveStr = (strLiteralWithQuotes) => {
-          const key = `__STR${saved.length}__`;
-          saved.push(strLiteralWithQuotes);
-          return key;
-        };
+      const saved = [];
+      const saveStr = (strLiteralWithQuotes) => {
+        const key = `__STR${saved.length}__`;
+        saved.push(strLiteralWithQuotes);
+        return key;
+      };
 
-        // 1) もともと式に含まれていた文字列リテラルを保護
-        expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
+      // 1) もともと式に含まれていた文字列リテラルを保護
+      expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
 
-        // 2) LENGTH(A) を処理（配列アクセスの前に処理）
-        expr = expr.replace(
-          /\bLENGTH\s*\(\s*([A-Za-z_]\w*)\s*\)/gi,
-          (_, arrName) => `getLength("${arrName}")`
+      // 2) LENGTH(A) を処理（配列アクセスの前に処理）
+      expr = expr.replace(
+        /\bLENGTH\s*\(\s*([A-Za-z_]\w*)\s*\)/gi,
+        (_, arrName) => `getLength("${arrName}")`
+      );
+
+      // 3) 配列アクセス A[i] を getArr("A", i) に変換（idxExpr は再帰コンパイル）
+      expr = expr.replace(
+        /([A-Za-z_]\w*)\s*\[\s*([^\]]+)\s*\]/g,
+        (_, name, idxExpr) => `getArr("${name}", (${compileExpr(idxExpr)}))`
+      );
+
+      // 4) ここまでの変換で新たに生成された "A" なども保護しないと、
+      //    後段の変数置換で A が getVar("A") に変換されて構文エラーになる
+      expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
+
+      expr = expr.replace(/([^=!<>])=([^=])/g, "$1===$2");
+
+      expr = expr.replace(/\b([A-Za-z_]\w*)\b/g, (m, name) => {
+        const upper = name.toUpperCase();
+        if (
+          [
+            "IF",
+            "THEN",
+            "ENDIF",
+            "FOR",
+            "TO",
+            "ENDFOR",
+            "WHILE",
+            "ENDWHILE",
+            "PRINT",
+            "INPUT",
+            "TRUE",
+            "FALSE",
+            "NULL",
+            "UNDEFINED",
+            "GETVAR",
+            "GETARR",
+            "GETLENGTH",
+            "LENGTH",
+          ].includes(upper)
+        )
+          return m;
+
+        if (/^__STR\d+__$/.test(name)) return m;
+
+        return `getVar("${name}")`;
+      });
+
+      // TRUE/FALSE リテラルを JS の true/false に変換
+      // 文字列リテラルは __STR__ に退避しているため、文字列中は置換されません
+      expr = expr.replace(/\bTRUE\b/gi, "true").replace(/\bFALSE\b/gi, "false");
+
+      expr = expr.replace(/__STR(\d+)__/g, (_, i) => saved[Number(i)]);
+      return expr;
+    }
+
+    function safeEval(jsExpr, ctx) {
+      const f = new Function("getVar", "getArr", "getLength", `return (${jsExpr});`);
+      return f(ctx.getVar, ctx.getArr, ctx.getLength);
+    }
+
+    function parseProgram(code) {
+      const rawLines = code.split("\n");
+      const lines = rawLines.map(stripComment);
+
+      const prog = [];
+      const stack = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (isEmpty(line)) continue;
+
+        const mIf = line.match(/^IF\s+(.+)\s+THEN$/i);
+        const mElse = line.match(/^ELSE$/i);
+        const mEndIf = line.match(/^ENDIF$/i);
+
+        const mFor = line.match(
+          /^FOR\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+TO\s+(.+)$/i
         );
+        const mEndFor = line.match(/^ENDFOR$/i);
 
-        // 3) 配列アクセス A[i] を getArr("A", i) に変換（idxExpr は再帰コンパイル）
-        expr = expr.replace(
-          /([A-Za-z_]\w*)\s*\[\s*([^\]]+)\s*\]/g,
-          (_, name, idxExpr) => `getArr("${name}", (${compileExpr(idxExpr)}))`
+        const mWhile = line.match(/^WHILE\s+(.+)$/i);
+        const mEndWhile = line.match(/^ENDWHILE$/i);
+
+        // --- IF ---
+        if (mIf) {
+          prog.push({
+            op: "IF",
+            cond: mIf[1],
+            jmpFalse: null, // 後で確定（ELSEがあればELSE直後、無ければENDIF直後）
+            srcLine: i + 1,
+          });
+          stack.push({ type: "IF", at: prog.length - 1, elseJmpAt: null });
+          continue;
+        }
+
+        // --- ELSE ---
+        if (mElse) {
+          const top = stack[stack.length - 1];
+          if (!top || top.type !== "IF") {
+            throw new Error(`ELSE の対応がありません（行 ${i + 1}）`);
+          }
+          if (top.elseJmpAt != null) {
+            throw new Error(
+              `ELSE は IF ブロック内で1回だけです（行 ${i + 1}）`
+            );
+          }
+
+          // IF が偽のときに飛ぶ先＝ELSE直後（このJMP命令の次）
+          prog[top.at].jmpFalse = prog.length + 1;
+
+          // THEN側を実行し終えたら ENDIF の次へ飛ぶ
+          prog.push({ op: "JMP", to: null, srcLine: i + 1 });
+          top.elseJmpAt = prog.length - 1;
+
+          continue;
+        }
+
+        // --- ENDIF ---
+        if (mEndIf) {
+          const top = stack.pop();
+          if (!top || top.type !== "IF") {
+            throw new Error(`ENDIF の対応がありません（行 ${i + 1}）`);
+          }
+
+          // ENDIF の次の命令位置（ここに確定）
+          const endPos = prog.length + 1; // このあと NOP を積むので +1
+
+          // ELSEが無い場合、IF偽ジャンプ先は ENDIF の次（NOPの次）にする
+          if (top.elseJmpAt == null) {
+            prog[top.at].jmpFalse = endPos;
+          } else {
+            // ELSEがある場合、ELSEで積んだJMPの飛び先を ENDIFの次にする
+            prog[top.elseJmpAt].to = endPos;
+          }
+
+          prog.push({ op: "NOP", srcLine: i + 1 });
+          continue;
+        }
+
+        // --- FOR ---
+        if (mFor) {
+          const varName = mFor[1];
+          prog.push({
+            op: "FOR_INIT",
+            varName,
+            start: mFor[2],
+            end: mFor[3],
+            jmpAfter: null,
+            srcLine: i + 1,
+          });
+          stack.push({ type: "FOR", at: prog.length - 1 });
+          continue;
+        }
+        if (mEndFor) {
+          const top = stack.pop();
+          if (!top || top.type !== "FOR")
+            throw new Error(`ENDFOR の対応がありません（行 ${i + 1}）`);
+          prog.push({ op: "FOR_NEXT", forAt: top.at, srcLine: i + 1 });
+          prog[top.at].jmpAfter = prog.length;
+          continue;
+        }
+
+        // --- WHILE ---
+        if (mWhile) {
+          prog.push({
+            op: "WHILE",
+            cond: mWhile[1],
+            jmpFalse: null,
+            srcLine: i + 1,
+          });
+          stack.push({ type: "WHILE", at: prog.length - 1 });
+          continue;
+        }
+        if (mEndWhile) {
+          const top = stack.pop();
+          if (!top || top.type !== "WHILE")
+            throw new Error(`ENDWHILE の対応がありません（行 ${i + 1}）`);
+          prog.push({ op: "JMP", to: top.at, srcLine: i + 1 });
+          prog[top.at].jmpFalse = prog.length;
+          continue;
+        }
+
+        // --- PRINT ---
+        const mPrint = line.match(/^PRINT\s+(.+)$/i);
+        if (mPrint) {
+          prog.push({ op: "PRINT", expr: mPrint[1], srcLine: i + 1 });
+          continue;
+        }
+
+        // --- INPUT ---
+        const mInput = line.match(/^INPUT\s+([A-Za-z_]\w*)$/i);
+        if (mInput) {
+          prog.push({ op: "INPUT", varName: mInput[1], srcLine: i + 1 });
+          continue;
+        }
+
+        // --- 配列初期化（A = [ 5, 2, 4, 1, 3 ] または A ← [ 5, 2, 4, 1, 3 ]） ---
+        const mArrInit = line.match(
+          /^([A-Za-z_]\w*)\s*(?:←|=)\s*\[\s*(.+)\s*\]$/
         );
-
-        // 4) ここまでの変換で新たに生成された "A" なども保護しないと、
-        //    後段の変数置換で A が getVar("A") に変換されて構文エラーになる
-        expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
-
-        expr = expr.replace(/([^=!<>])=([^=])/g, "$1===$2");
-
-        expr = expr.replace(/\b([A-Za-z_]\w*)\b/g, (m, name) => {
-            const upper = name.toUpperCase();
-            if (
-              [
-                "IF",
-                "THEN",
-                "ENDIF",
-                "FOR",
-                "TO",
-                "ENDFOR",
-                "WHILE",
-                "ENDWHILE",
-                "PRINT",
-                "INPUT",
-                "TRUE",
-                "FALSE",
-                "NULL",
-                "UNDEFINED",
-                "GETVAR",
-                "GETARR",
-                "GETLENGTH",
-                "LENGTH",
-              ].includes(upper)
-            )
-              return m;
-
-            if (/^__STR\d+__$/.test(name)) return m;
-
-            return `getVar("${name}")`;
+        if (mArrInit) {
+          const arrName = mArrInit[1];
+          const arrContent = mArrInit[2].trim();
+          // カンマ区切りの要素を抽出
+          const elements = arrContent
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+          prog.push({
+            op: "ASSIGN_ARR_INIT",
+            arrName,
+            elements,
+            srcLine: i + 1,
           });
-
-          expr = expr.replace(/__STR(\d+)__/g, (_, i) => saved[Number(i)]);
-          return expr;
-      }
-
-      function safeEval(jsExpr, ctx) {
-        const f = new Function("getVar", "getArr", "getLength", `return (${jsExpr});`);
-        return f(ctx.getVar, ctx.getArr, ctx.getLength);
-      }
-
-      function parseProgram(code) {
-        const rawLines = code.split("\n");
-        const lines = rawLines.map(stripComment);
-
-        const prog = [];
-        const stack = [];
-
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          if (isEmpty(line)) continue;
-
-          const mIf = line.match(/^IF\s+(.+)\s+THEN$/i);
-          const mElse = line.match(/^ELSE$/i);
-          const mEndIf = line.match(/^ENDIF$/i);
-
-          const mFor = line.match(
-            /^FOR\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+TO\s+(.+)$/i
-          );
-          const mEndFor = line.match(/^ENDFOR$/i);
-
-          const mWhile = line.match(/^WHILE\s+(.+)$/i);
-          const mEndWhile = line.match(/^ENDWHILE$/i);
-
-          // --- IF ---
-          if (mIf) {
-            prog.push({
-              op: "IF",
-              cond: mIf[1],
-              jmpFalse: null, // 後で確定（ELSEがあればELSE直後、無ければENDIF直後）
-              srcLine: i + 1,
-            });
-            stack.push({ type: "IF", at: prog.length - 1, elseJmpAt: null });
-            continue;
-          }
-
-          // --- ELSE ---
-          if (mElse) {
-            const top = stack[stack.length - 1];
-            if (!top || top.type !== "IF") {
-              throw new Error(`ELSE の対応がありません（行 ${i + 1}）`);
-            }
-            if (top.elseJmpAt != null) {
-              throw new Error(
-                `ELSE は IF ブロック内で1回だけです（行 ${i + 1}）`
-              );
-            }
-
-            // IF が偽のときに飛ぶ先＝ELSE直後（このJMP命令の次）
-            prog[top.at].jmpFalse = prog.length + 1;
-
-            // THEN側を実行し終えたら ENDIF の次へ飛ぶ
-            prog.push({ op: "JMP", to: null, srcLine: i + 1 });
-            top.elseJmpAt = prog.length - 1;
-
-            continue;
-          }
-
-          // --- ENDIF ---
-          if (mEndIf) {
-            const top = stack.pop();
-            if (!top || top.type !== "IF") {
-              throw new Error(`ENDIF の対応がありません（行 ${i + 1}）`);
-            }
-
-            // ENDIF の次の命令位置（ここに確定）
-            const endPos = prog.length + 1; // このあと NOP を積むので +1
-
-            // ELSEが無い場合、IF偽ジャンプ先は ENDIF の次（NOPの次）にする
-            if (top.elseJmpAt == null) {
-              prog[top.at].jmpFalse = endPos;
-            } else {
-              // ELSEがある場合、ELSEで積んだJMPの飛び先を ENDIFの次にする
-              prog[top.elseJmpAt].to = endPos;
-            }
-
-            prog.push({ op: "NOP", srcLine: i + 1 });
-            continue;
-          }
-
-          // --- FOR ---
-          if (mFor) {
-            const varName = mFor[1];
-            prog.push({
-              op: "FOR_INIT",
-              varName,
-              start: mFor[2],
-              end: mFor[3],
-              jmpAfter: null,
-              srcLine: i + 1,
-            });
-            stack.push({ type: "FOR", at: prog.length - 1 });
-            continue;
-          }
-          if (mEndFor) {
-            const top = stack.pop();
-            if (!top || top.type !== "FOR")
-              throw new Error(`ENDFOR の対応がありません（行 ${i + 1}）`);
-            prog.push({ op: "FOR_NEXT", forAt: top.at, srcLine: i + 1 });
-            prog[top.at].jmpAfter = prog.length;
-            continue;
-          }
-
-          // --- WHILE ---
-          if (mWhile) {
-            prog.push({
-              op: "WHILE",
-              cond: mWhile[1],
-              jmpFalse: null,
-              srcLine: i + 1,
-            });
-            stack.push({ type: "WHILE", at: prog.length - 1 });
-            continue;
-          }
-          if (mEndWhile) {
-            const top = stack.pop();
-            if (!top || top.type !== "WHILE")
-              throw new Error(`ENDWHILE の対応がありません（行 ${i + 1}）`);
-            prog.push({ op: "JMP", to: top.at, srcLine: i + 1 });
-            prog[top.at].jmpFalse = prog.length;
-            continue;
-          }
-
-          // --- PRINT ---
-          const mPrint = line.match(/^PRINT\s+(.+)$/i);
-          if (mPrint) {
-            prog.push({ op: "PRINT", expr: mPrint[1], srcLine: i + 1 });
-            continue;
-          }
-
-          // --- INPUT ---
-          const mInput = line.match(/^INPUT\s+([A-Za-z_]\w*)$/i);
-          if (mInput) {
-            prog.push({ op: "INPUT", varName: mInput[1], srcLine: i + 1 });
-            continue;
-          }
-
-          // --- 配列初期化（A = [ 5, 2, 4, 1, 3 ] または A ← [ 5, 2, 4, 1, 3 ]） ---
-          const mArrInit = line.match(
-            /^([A-Za-z_]\w*)\s*(?:←|=)\s*\[\s*(.+)\s*\]$/
-          );
-          if (mArrInit) {
-            const arrName = mArrInit[1];
-            const arrContent = mArrInit[2].trim();
-            // カンマ区切りの要素を抽出
-            const elements = arrContent
-              .split(",")
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0);
-            prog.push({
-              op: "ASSIGN_ARR_INIT",
-              arrName,
-              elements,
-              srcLine: i + 1,
-            });
-            continue;
-          }
-
-          // --- 配列代入 ---
-          const mAssignArr = line.match(
-            /^([A-Za-z_]\w*)\s*\[\s*(.+)\s*\]\s*←\s*(.+)$/
-          );
-          if (mAssignArr) {
-            prog.push({
-              op: "ASSIGN_ARR",
-              arrName: mAssignArr[1],
-              idx: mAssignArr[2],
-              expr: mAssignArr[3],
-              srcLine: i + 1,
-            });
-            continue;
-          }
-
-          // --- 変数代入 ---
-          const mAssign = line.match(/^([A-Za-z_]\w*)\s*←\s*(.+)$/);
-          if (mAssign) {
-            prog.push({
-              op: "ASSIGN",
-              varName: mAssign[1],
-              expr: mAssign[2],
-              srcLine: i + 1,
-            });
-            continue;
-          }
-
-          throw new Error(`解釈できない行があります（行 ${i + 1}）: ${line}`);
+          continue;
         }
 
-        if (stack.length) {
-          const t = stack[stack.length - 1];
-          throw new Error(`${t.type} が閉じられていません`);
-        }
-        return prog;
-      }
-
-      function createVM(program, inputText) {
-        const env = { vars: {}, arr: {}, kind: {} };
-        const input = inputText
-          .split("\n")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-        const out = [];
-        let pc = 0;
-        let halted = false;
-        const forEndMap = {};
-
-        function ensureKindVar(name, srcLine) {
-          const k = env.kind[name];
-          if (k === "arr") {
-            throw new Error(
-              `配列 ${name} は数値(スカラ)として使用できません（行 ${srcLine}）\n` +
-                `例: ${name}[1] のように添字を付けて参照してください`
-            );
-          }
-          if (!k) env.kind[name] = "var";
-        }
-
-        function ensureKindArr(name, srcLine) {
-          const k = env.kind[name];
-          if (k === "var") {
-            throw new Error(
-              `変数 ${name} と配列 ${name} を同名で使用できません（行 ${srcLine}）\n` +
-                `例: ${name} を使うなら配列名は別名にしてください`
-            );
-          }
-          if (!k) env.kind[name] = "arr";
-        }
-
-        function getVarWithLine(name, srcLine) {
-          ensureKindVar(name, srcLine);
-          if (!(name in env.vars)) env.vars[name] = 0;
-          return env.vars[name];
-        }
-
-        function setVarWithLine(name, value, srcLine) {
-          ensureKindVar(name, srcLine);
-          env.vars[name] = value;
-        }
-
-        function validateIndex(i, name, srcLine) {
-          if (!Number.isInteger(i)) {
-            throw new Error(
-              `配列添字は整数である必要があります: ${name}[${i}]（行 ${srcLine}）`
-            );
-          }
-          if (i < 1) {
-            throw new Error(
-              `配列添字は 1 以上です: ${name}[${i}]（行 ${srcLine}）`
-            );
-          }
-        }
-
-        function getArr(name, idx, srcLine) {
-          ensureKindArr(name, srcLine);
-          const i = Number(idx);
-          if (!Number.isFinite(i)) {
-            throw new Error(
-              `配列添字が数値ではありません: ${name}[${idx}]（行 ${srcLine}）`
-            );
-          }
-          validateIndex(i, name, srcLine);
-          if (!env.arr[name]) env.arr[name] = {};
-          if (!(i in env.arr[name])) env.arr[name][i] = 0;
-          return env.arr[name][i];
-        }
-
-        function setArr(name, idx, value, srcLine) {
-          ensureKindArr(name, srcLine);
-          const i = Number(idx);
-          if (!Number.isFinite(i)) {
-            throw new Error(
-              `配列添字が数値ではありません: ${name}[${idx}]（行 ${srcLine}）`
-            );
-          }
-          validateIndex(i, name, srcLine);
-          if (!env.arr[name]) env.arr[name] = {};
-          env.arr[name][i] = value;
-        }
-
-        function getLength(name, srcLine) {
-          ensureKindArr(name, srcLine);
-          if (!env.arr[name] || Object.keys(env.arr[name]).length === 0) {
-            return 0;
-          }
-          // 配列の最大インデックスを取得（1始まりなので、それが要素数）
-          const indices = Object.keys(env.arr[name])
-            .map(Number)
-            .filter((i) => i >= 1);
-          if (indices.length === 0) return 0;
-          return Math.max(...indices);
-        }
-
-        function evalExpr(expr, srcLine) {
-          const js = compileExpr(expr);
-          const v = safeEval(js, {
-            getVar: (n) => getVarWithLine(n, srcLine),
-            getArr: (n, i) => getArr(n, i, srcLine),
-            getLength: (n) => getLength(n, srcLine),
+        // --- 配列代入 ---
+        const mAssignArr = line.match(
+          /^([A-Za-z_]\w*)\s*\[\s*(.+)\s*\]\s*←\s*(.+)$/
+        );
+        if (mAssignArr) {
+          prog.push({
+            op: "ASSIGN_ARR",
+            arrName: mAssignArr[1],
+            idx: mAssignArr[2],
+            expr: mAssignArr[3],
+            srcLine: i + 1,
           });
-          if (typeof v === "boolean") return v ? 1 : 0;
-          if (typeof v === "number") return v;
-          return v;
+          continue;
         }
 
-        function step() {
-          if (halted) return;
-          if (pc < 0 || pc >= program.length) {
-            halted = true;
-            return;
-          }
-
-          const ins = program[pc];
-
-          switch (ins.op) {
-            case "NOP":
-              pc++;
-              break;
-
-            case "ASSIGN": {
-              const v = evalExpr(ins.expr, ins.srcLine);
-              setVarWithLine(ins.varName, v, ins.srcLine);
-              pc++;
-              break;
-            }
-            case "ASSIGN_ARR": {
-              const idx = evalExpr(ins.idx, ins.srcLine);
-              const v = evalExpr(ins.expr, ins.srcLine);
-              setArr(ins.arrName, idx, v, ins.srcLine);
-              pc++;
-              break;
-            }
-            case "ASSIGN_ARR_INIT": {
-              // 配列を初期化（要素は1始まりのインデックスで設定）
-              ensureKindArr(ins.arrName, ins.srcLine);
-              if (!env.arr[ins.arrName]) env.arr[ins.arrName] = {};
-              for (let i = 0; i < ins.elements.length; i++) {
-                const elementExpr = ins.elements[i];
-                const value = evalExpr(elementExpr, ins.srcLine);
-                const idx = i + 1; // 1始まり
-                env.arr[ins.arrName][idx] = value;
-              }
-              pc++;
-              break;
-            }
-            case "PRINT": {
-              const v = evalExpr(ins.expr, ins.srcLine);
-              out.push(String(v));
-              pc++;
-              break;
-            }
-            case "INPUT": {
-              if (input.length === 0)
-                throw new Error(`INPUT が不足しています（行 ${ins.srcLine}）`);
-              const raw = input.shift();
-              const num = Number(raw);
-              if (!Number.isFinite(num))
-                throw new Error(
-                  `INPUT が数値ではありません: "${raw}"（行 ${ins.srcLine}）`
-                );
-              setVarWithLine(ins.varName, num, ins.srcLine);
-              pc++;
-              break;
-            }
-            case "IF": {
-              const cond = evalExpr(ins.cond, ins.srcLine);
-              pc = cond ? pc + 1 : ins.jmpFalse;
-              break;
-            }
-            case "WHILE": {
-              const cond = evalExpr(ins.cond, ins.srcLine);
-              pc = cond ? pc + 1 : ins.jmpFalse;
-              break;
-            }
-            case "JMP":
-              pc = ins.to;
-              break;
-
-            case "FOR_INIT": {
-              ensureKindVar(ins.varName, ins.srcLine);
-              const start = evalExpr(ins.start, ins.srcLine);
-              const end = evalExpr(ins.end, ins.srcLine);
-              setVarWithLine(ins.varName, start, ins.srcLine);
-              forEndMap[pc] = end;
-              pc = start <= end ? pc + 1 : ins.jmpAfter;
-              break;
-            }
-            case "FOR_NEXT": {
-              const init = program[ins.forAt];
-              const end = forEndMap[ins.forAt];
-              const cur = getVarWithLine(init.varName, init.srcLine) + 1;
-              setVarWithLine(init.varName, cur, init.srcLine);
-              pc = cur <= end ? ins.forAt + 1 : init.jmpAfter;
-              break;
-            }
-
-            default:
-              throw new Error(`未知の命令: ${ins.op}`);
-          }
-
-          if (pc >= program.length) halted = true;
+        // --- 変数代入 ---
+        const mAssign = line.match(/^([A-Za-z_]\w*)\s*←\s*(.+)$/);
+        if (mAssign) {
+          prog.push({
+            op: "ASSIGN",
+            varName: mAssign[1],
+            expr: mAssign[2],
+            srcLine: i + 1,
+          });
+          continue;
         }
 
-        function dumpVars() {
-          const lines = [];
-          const keys = Object.keys(env.vars).sort();
-          for (const k of keys) lines.push(`${k} = ${env.vars[k]}`);
-          const arrKeys = Object.keys(env.arr).sort();
-          for (const a of arrKeys) {
-            const idxs = Object.keys(env.arr[a])
-              .map(Number)
-              .sort((x, y) => x - y);
-            const pairs = idxs.map((i) => `${i}:${env.arr[a][i]}`);
-            lines.push(`${a}[...] = { ${pairs.join(", ")} }`);
-          }
-          return lines.join("\n");
-        }
-
-        return {
-          step,
-          run(maxSteps = 20000) {
-            let n = 0;
-            while (!halted) {
-              step();
-              n++;
-              if (n > maxSteps)
-                throw new Error(
-                  "最大ステップ数を超えました（無限ループの可能性）"
-                );
-            }
-          },
-          get pc() {
-            return pc;
-          },
-          get halted() {
-            return halted;
-          },
-          get out() {
-            return out.join("\n");
-          },
-          dumpVars,
-          getCurrentSrcLine() {
-            if (halted) return null;
-            const ins = program[pc];
-            return ins ? ins.srcLine : null;
-          },
-        };
+        throw new Error(`解釈できない行があります（行 ${i + 1}）: ${line}`);
       }
 
-      // ====== 行ハイライト（textarea の背景帯） ======
-      const lineHighlightEl = $("lineHighlight");
-      const codeEl = $("code");
+      if (stack.length) {
+        const t = stack[stack.length - 1];
+        throw new Error(`${t.type} が閉じられていません`);
+      }
+      return prog;
+    }
 
-      function getTextareaMetrics() {
-        const cs = getComputedStyle(codeEl);
-        const paddingTop = parseFloat(cs.paddingTop) || 0;
+    function createVM(program, inputText) {
+      const env = { vars: {}, arr: {}, kind: {} };
+      const input = inputText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const out = [];
+      let pc = 0;
+      let halted = false;
+      const forEndMap = {};
 
-        let lineHeight = parseFloat(cs.lineHeight);
-        if (!Number.isFinite(lineHeight)) {
-          const fontSize = parseFloat(cs.fontSize) || 13;
-          lineHeight = fontSize * 1.5;
+      function ensureKindVar(name, srcLine) {
+        const k = env.kind[name];
+        if (k === "arr") {
+          throw new Error(
+            `配列 ${name} は数値(スカラ)として使用できません（行 ${srcLine}）\n` +
+            `例: ${name}[1] のように添字を付けて参照してください`
+          );
         }
-
-        return { paddingTop, lineHeight };
+        if (!k) env.kind[name] = "var";
       }
 
-      function updateHighlight(srcLine) {
-        const { paddingTop, lineHeight } = getTextareaMetrics();
+      function ensureKindArr(name, srcLine) {
+        const k = env.kind[name];
+        if (k === "var") {
+          throw new Error(
+            `変数 ${name} と配列 ${name} を同名で使用できません（行 ${srcLine}）\n` +
+            `例: ${name} を使うなら配列名は別名にしてください`
+          );
+        }
+        if (!k) env.kind[name] = "arr";
+      }
 
-        if (!srcLine || srcLine < 1) {
-          lineHighlightEl.style.display = "none";
+      function getVarWithLine(name, srcLine) {
+        ensureKindVar(name, srcLine);
+        if (!(name in env.vars)) env.vars[name] = 0;
+        return env.vars[name];
+      }
+
+      function setVarWithLine(name, value, srcLine) {
+        ensureKindVar(name, srcLine);
+        env.vars[name] = value;
+      }
+
+      function validateIndex(i, name, srcLine) {
+        if (!Number.isInteger(i)) {
+          throw new Error(
+            `配列添字は整数である必要があります: ${name}[${i}]（行 ${srcLine}）`
+          );
+        }
+        if (i < 1) {
+          throw new Error(
+            `配列添字は 1 以上です: ${name}[${i}]（行 ${srcLine}）`
+          );
+        }
+      }
+
+      function getArr(name, idx, srcLine) {
+        ensureKindArr(name, srcLine);
+        const i = Number(idx);
+        if (!Number.isFinite(i)) {
+          throw new Error(
+            `配列添字が数値ではありません: ${name}[${idx}]（行 ${srcLine}）`
+          );
+        }
+        validateIndex(i, name, srcLine);
+        if (!env.arr[name]) env.arr[name] = {};
+        if (!(i in env.arr[name])) env.arr[name][i] = 0;
+        return env.arr[name][i];
+      }
+
+      function setArr(name, idx, value, srcLine) {
+        ensureKindArr(name, srcLine);
+        const i = Number(idx);
+        if (!Number.isFinite(i)) {
+          throw new Error(
+            `配列添字が数値ではありません: ${name}[${idx}]（行 ${srcLine}）`
+          );
+        }
+        validateIndex(i, name, srcLine);
+        if (!env.arr[name]) env.arr[name] = {};
+        env.arr[name][i] = value;
+      }
+
+      function getLength(name, srcLine) {
+        ensureKindArr(name, srcLine);
+        if (!env.arr[name] || Object.keys(env.arr[name]).length === 0) {
+          return 0;
+        }
+        // 配列の最大インデックスを取得（1始まりなので、それが要素数）
+        const indices = Object.keys(env.arr[name])
+          .map(Number)
+          .filter((i) => i >= 1);
+        if (indices.length === 0) return 0;
+        return Math.max(...indices);
+      }
+
+      function evalExpr(expr, srcLine) {
+        const js = compileExpr(expr);
+        const v = safeEval(js, {
+          getVar: (n) => getVarWithLine(n, srcLine),
+          getArr: (n, i) => getArr(n, i, srcLine),
+          getLength: (n) => getLength(n, srcLine),
+        });
+        // 真偽値は 0/1 に潰さず、そのまま扱う（PRINT で true/false が出る）
+        return v;
+      }
+
+      function step() {
+        if (halted) return;
+        if (pc < 0 || pc >= program.length) {
+          halted = true;
           return;
         }
 
-        const top = paddingTop + (srcLine - 1) * lineHeight - codeEl.scrollTop;
+        const ins = program[pc];
 
-        lineHighlightEl.style.display = "block";
-        lineHighlightEl.style.top = `${top}px`;
-        lineHighlightEl.style.height = `${lineHeight}px`;
+        switch (ins.op) {
+          case "NOP":
+            pc++;
+            break;
+
+          case "ASSIGN": {
+            const v = evalExpr(ins.expr, ins.srcLine);
+            setVarWithLine(ins.varName, v, ins.srcLine);
+            pc++;
+            break;
+          }
+          case "ASSIGN_ARR": {
+            const idx = evalExpr(ins.idx, ins.srcLine);
+            const v = evalExpr(ins.expr, ins.srcLine);
+            setArr(ins.arrName, idx, v, ins.srcLine);
+            pc++;
+            break;
+          }
+          case "ASSIGN_ARR_INIT": {
+            // 配列を初期化（要素は1始まりのインデックスで設定）
+            ensureKindArr(ins.arrName, ins.srcLine);
+            if (!env.arr[ins.arrName]) env.arr[ins.arrName] = {};
+            for (let i = 0; i < ins.elements.length; i++) {
+              const elementExpr = ins.elements[i];
+              const value = evalExpr(elementExpr, ins.srcLine);
+              const idx = i + 1; // 1始まり
+              env.arr[ins.arrName][idx] = value;
+            }
+            pc++;
+            break;
+          }
+          case "PRINT": {
+            const v = evalExpr(ins.expr, ins.srcLine);
+            out.push(String(v));
+            pc++;
+            break;
+          }
+          case "INPUT": {
+            if (input.length === 0)
+              throw new Error(`INPUT が不足しています（行 ${ins.srcLine}）`);
+            const raw = input.shift();
+            const num = Number(raw);
+            if (!Number.isFinite(num))
+              throw new Error(
+                `INPUT が数値ではありません: "${raw}"（行 ${ins.srcLine}）`
+              );
+            setVarWithLine(ins.varName, num, ins.srcLine);
+            pc++;
+            break;
+          }
+          case "IF": {
+            const cond = evalExpr(ins.cond, ins.srcLine);
+            pc = cond ? pc + 1 : ins.jmpFalse;
+            break;
+          }
+          case "WHILE": {
+            const cond = evalExpr(ins.cond, ins.srcLine);
+            pc = cond ? pc + 1 : ins.jmpFalse;
+            break;
+          }
+          case "JMP":
+            pc = ins.to;
+            break;
+
+          case "FOR_INIT": {
+            ensureKindVar(ins.varName, ins.srcLine);
+            const start = evalExpr(ins.start, ins.srcLine);
+            const end = evalExpr(ins.end, ins.srcLine);
+            setVarWithLine(ins.varName, start, ins.srcLine);
+            forEndMap[pc] = end;
+            pc = start <= end ? pc + 1 : ins.jmpAfter;
+            break;
+          }
+          case "FOR_NEXT": {
+            const init = program[ins.forAt];
+            const end = forEndMap[ins.forAt];
+            const cur = getVarWithLine(init.varName, init.srcLine) + 1;
+            setVarWithLine(init.varName, cur, init.srcLine);
+            pc = cur <= end ? ins.forAt + 1 : init.jmpAfter;
+            break;
+          }
+
+          default:
+            throw new Error(`未知の命令: ${ins.op}`);
+        }
+
+        if (pc >= program.length) halted = true;
       }
 
-      // ====== UI ======
-      let vm = null;
-      let program = null;
+      function dumpVars() {
+        const lines = [];
+        const keys = Object.keys(env.vars).sort();
+        for (const k of keys) lines.push(`${k} = ${env.vars[k]}`);
+        const arrKeys = Object.keys(env.arr).sort();
+        for (const a of arrKeys) {
+          const idxs = Object.keys(env.arr[a])
+            .map(Number)
+            .sort((x, y) => x - y);
+          const pairs = idxs.map((i) => `${i}:${env.arr[a][i]}`);
+          lines.push(`${a}[...] = { ${pairs.join(", ")} }`);
+        }
+        return lines.join("\n");
+      }
 
-      function render() {
-        $("pcInfo").textContent = `PC: ${vm ? vm.pc : "-"}`;
+      return {
+        step,
+        run(maxSteps = 20000) {
+          let n = 0;
+          while (!halted) {
+            step();
+            n++;
+            if (n > maxSteps)
+              throw new Error(
+                "最大ステップ数を超えました（無限ループの可能性）"
+              );
+          }
+        },
+        get pc() {
+          return pc;
+        },
+        get halted() {
+          return halted;
+        },
+        get out() {
+          return out.join("\n");
+        },
+        dumpVars,
+        getCurrentSrcLine() {
+          if (halted) return null;
+          const ins = program[pc];
+          return ins ? ins.srcLine : null;
+        },
+      };
+    }
 
-        const line = vm ? vm.getCurrentSrcLine() : null;
-        $("lineInfo").textContent = `行: ${line ?? "-"}`;
+    // ====== 行ハイライト（textarea の背景帯） ======
+    const lineHighlightEl = $("lineHighlight");
+    const codeEl = $("code");
 
-        $("stateInfo").textContent = `状態: ${
-          vm ? (vm.halted ? "停止" : "実行中") : "-"
+    function getTextareaMetrics() {
+      const cs = getComputedStyle(codeEl);
+      const paddingTop = parseFloat(cs.paddingTop) || 0;
+
+      let lineHeight = parseFloat(cs.lineHeight);
+      if (!Number.isFinite(lineHeight)) {
+        const fontSize = parseFloat(cs.fontSize) || 13;
+        lineHeight = fontSize * 1.5;
+      }
+
+      return { paddingTop, lineHeight };
+    }
+
+    function updateHighlight(srcLine) {
+      const { paddingTop, lineHeight } = getTextareaMetrics();
+
+      if (!srcLine || srcLine < 1) {
+        lineHighlightEl.style.display = "none";
+        return;
+      }
+
+      const top = paddingTop + (srcLine - 1) * lineHeight - codeEl.scrollTop;
+
+      lineHighlightEl.style.display = "block";
+      lineHighlightEl.style.top = `${top}px`;
+      lineHighlightEl.style.height = `${lineHeight}px`;
+    }
+
+    // ====== UI ======
+    let vm = null;
+    let program = null;
+
+    function render() {
+      $("pcInfo").textContent = `PC: ${vm ? vm.pc : "-"}`;
+
+      const line = vm ? vm.getCurrentSrcLine() : null;
+      $("lineInfo").textContent = `行: ${line ?? "-"}`;
+
+      $("stateInfo").textContent = `状態: ${vm ? (vm.halted ? "停止" : "実行中") : "-"
         }`;
 
-        $("out").textContent = vm ? vm.out : "";
-        $("vars").textContent = vm ? vm.dumpVars() : "";
+      $("out").textContent = vm ? vm.out : "";
+      $("vars").textContent = vm ? vm.dumpVars() : "";
 
-        updateHighlight(line);
+      updateHighlight(line);
+    }
+
+    function reset() {
+      $("err").textContent = "";
+      try {
+        program = parseProgram($("code").value);
+        vm = createVM(program, $("inp").value);
+        render();
+      } catch (e) {
+        vm = null;
+        program = null;
+        $("err").textContent = String(e.message || e);
+        render();
       }
+    }
 
-      function reset() {
-        $("err").textContent = "";
-        try {
-          program = parseProgram($("code").value);
-          vm = createVM(program, $("inp").value);
-          render();
-        } catch (e) {
-          vm = null;
-          program = null;
-          $("err").textContent = String(e.message || e);
-          render();
-        }
-      }
+    $("resetBtn").addEventListener("click", reset);
 
-      $("resetBtn").addEventListener("click", reset);
-
-      $("helpBtn").addEventListener("click", () => {
-        $("help").textContent = HELP_TEXT;
-        $("help").scrollTop = 0;
-      });
-
-      $("stepBtn").addEventListener("click", () => {
-        $("err").textContent = "";
-        try {
-          if (!vm) reset();
-          if (!vm) return;
-          if (!vm.halted) vm.step();
-          render();
-        } catch (e) {
-          $("err").textContent = String(e.message || e);
-          render();
-        }
-      });
-
-      $("runBtn").addEventListener("click", () => {
-        $("err").textContent = "";
-        try {
-          if (!vm) reset();
-          if (!vm) return;
-          vm.run();
-          render();
-        } catch (e) {
-          $("err").textContent = String(e.message || e);
-          render();
-        }
-      });
-
-      // スクロール追従
-      codeEl.addEventListener("scroll", () => {
-        if (vm) updateHighlight(vm.getCurrentSrcLine());
-      });
-
+    $("helpBtn").addEventListener("click", () => {
       $("help").textContent = HELP_TEXT;
-      reset();
-    </script>
-  </body>
+      $("help").scrollTop = 0;
+    });
+
+    $("stepBtn").addEventListener("click", () => {
+      $("err").textContent = "";
+      try {
+        if (!vm) reset();
+        if (!vm) return;
+        if (!vm.halted) vm.step();
+        render();
+      } catch (e) {
+        $("err").textContent = String(e.message || e);
+        render();
+      }
+    });
+
+    $("runBtn").addEventListener("click", () => {
+      $("err").textContent = "";
+      try {
+        if (!vm) reset();
+        if (!vm) return;
+        vm.run();
+        render();
+      } catch (e) {
+        $("err").textContent = String(e.message || e);
+        render();
+      }
+    });
+
+    // スクロール追従
+    codeEl.addEventListener("scroll", () => {
+      if (vm) updateHighlight(vm.getCurrentSrcLine());
+    });
+
+    $("help").textContent = HELP_TEXT;
+    reset();
+  </script>
+</body>
+
 </html>
