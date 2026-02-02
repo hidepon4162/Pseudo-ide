@@ -326,6 +326,29 @@ PRINT sum
     function isEmpty(line) {
       return !line || line.trim() === "";
     }
+  function splitTopLevelArgs(argsText) {
+    const s = (argsText ?? "").trim();
+    if (!s) return [];
+    const res = [];
+    let cur = "";
+    let depth = 0;
+
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") depth = Math.max(0, depth - 1);
+
+      if (ch === "," && depth === 0) {
+        if (cur.trim()) res.push(cur.trim());
+        cur = "";
+        continue;
+      }
+      cur += ch;
+    }
+
+    if (cur.trim()) res.push(cur.trim());
+    return res;
+  }
 
     function normalizeExpr(expr) {
       return expr
@@ -410,16 +433,72 @@ PRINT sum
       return f(ctx.getVar, ctx.getArr, ctx.getLength);
     }
 
-    function parseProgram(code) {
-      const rawLines = code.split("\n");
-      const lines = rawLines.map(stripComment);
+  function parseProgram(code) {
+    const rawLines = code.split("\n");
+    const stripped = rawLines.map(stripComment);
 
+    // 行番号付きで保持
+    const items = stripped.map((text, idx) => ({
+      text: text.trim(),
+      srcLine: idx + 1,
+    }));
+
+    // 手続き定義を抜き出して main と分離
+    const mainItems = [];
+    const procDefs = []; // { name, params, bodyItems, defLine }
+
+    for (let i = 0; i < items.length; i++) {
+      const { text, srcLine } = items[i];
+      if (isEmpty(text)) continue;
+
+      const mProc = text.match(
+        /^PROCEDURE\s+([A-Za-z_]\w*)\s*\(\s*(.*?)\s*\)\s*$/i
+      );
+      if (mProc) {
+        const name = mProc[1];
+        const paramsText = mProc[2] ?? "";
+        const params = splitTopLevelArgs(paramsText)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        // body を ENDPROCEDURE まで収集
+        const bodyItems = [];
+        let foundEnd = false;
+        for (i = i + 1; i < items.length; i++) {
+          const t = items[i].text;
+          const ln = items[i].srcLine;
+          if (isEmpty(t)) continue;
+          if (/^ENDPROCEDURE$/i.test(t)) {
+            foundEnd = true;
+            break;
+          }
+          bodyItems.push({ text: t, srcLine: ln });
+        }
+        if (!foundEnd) {
+          throw new Error(`ENDPROCEDURE が見つかりません（手続き ${name} / 行 ${srcLine}）`);
+        }
+
+        procDefs.push({ name, params, bodyItems, defLine: srcLine });
+        continue;
+      }
+
+      // main 側
+      mainItems.push({ text, srcLine });
+    }
+
+    function parseItemsToProg(blockItems) {
       const prog = [];
       const stack = [];
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+      for (let k = 0; k < blockItems.length; k++) {
+        const line = blockItems[k].text;
+        const srcLine = blockItems[k].srcLine;
         if (isEmpty(line)) continue;
+
+        // 手続き定義はここでは不可（外側で処理済み）
+        if (/^PROCEDURE\b/i.test(line) || /^ENDPROCEDURE$/i.test(line)) {
+          throw new Error(`手続き定義の入れ子は未対応です（行 ${srcLine}）`);
+        }
 
         const mIf = line.match(/^IF\s+(.+)\s+THEN$/i);
         const mElse = line.match(/^ELSE$/i);
@@ -433,13 +512,19 @@ PRINT sum
         const mWhile = line.match(/^WHILE\s+(.+)$/i);
         const mEndWhile = line.match(/^ENDWHILE$/i);
 
+        // --- RETURN（値なし） ---
+        if (/^RETURN$/i.test(line)) {
+          prog.push({ op: "RETURN", srcLine });
+          continue;
+        }
+
         // --- IF ---
         if (mIf) {
           prog.push({
             op: "IF",
             cond: mIf[1],
-            jmpFalse: null, // 後で確定（ELSEがあればELSE直後、無ければENDIF直後）
-            srcLine: i + 1,
+            jmpFalse: null,
+            srcLine,
           });
           stack.push({ type: "IF", at: prog.length - 1, elseJmpAt: null });
           continue;
@@ -449,21 +534,14 @@ PRINT sum
         if (mElse) {
           const top = stack[stack.length - 1];
           if (!top || top.type !== "IF") {
-            throw new Error(`ELSE の対応がありません（行 ${i + 1}）`);
+            throw new Error(`ELSE の対応がありません（行 ${srcLine}）`);
           }
           if (top.elseJmpAt != null) {
-            throw new Error(
-              `ELSE は IF ブロック内で1回だけです（行 ${i + 1}）`
-            );
+            throw new Error(`ELSE は IF ブロック内で1回だけです（行 ${srcLine}）`);
           }
-
-          // IF が偽のときに飛ぶ先＝ELSE直後（このJMP命令の次）
           prog[top.at].jmpFalse = prog.length + 1;
-
-          // THEN側を実行し終えたら ENDIF の次へ飛ぶ
-          prog.push({ op: "JMP", to: null, srcLine: i + 1 });
+          prog.push({ op: "JMP", to: null, srcLine });
           top.elseJmpAt = prog.length - 1;
-
           continue;
         }
 
@@ -471,21 +549,15 @@ PRINT sum
         if (mEndIf) {
           const top = stack.pop();
           if (!top || top.type !== "IF") {
-            throw new Error(`ENDIF の対応がありません（行 ${i + 1}）`);
+            throw new Error(`ENDIF の対応がありません（行 ${srcLine}）`);
           }
-
-          // ENDIF の次の命令位置（ここに確定）
-          const endPos = prog.length + 1; // このあと NOP を積むので +1
-
-          // ELSEが無い場合、IF偽ジャンプ先は ENDIF の次（NOPの次）にする
+          const endPos = prog.length + 1; // NOP を積むので +1
           if (top.elseJmpAt == null) {
             prog[top.at].jmpFalse = endPos;
           } else {
-            // ELSEがある場合、ELSEで積んだJMPの飛び先を ENDIFの次にする
             prog[top.elseJmpAt].to = endPos;
           }
-
-          prog.push({ op: "NOP", srcLine: i + 1 });
+          prog.push({ op: "NOP", srcLine });
           continue;
         }
 
@@ -498,16 +570,17 @@ PRINT sum
             start: mFor[2],
             end: mFor[3],
             jmpAfter: null,
-            srcLine: i + 1,
+            srcLine,
           });
           stack.push({ type: "FOR", at: prog.length - 1 });
           continue;
         }
         if (mEndFor) {
           const top = stack.pop();
-          if (!top || top.type !== "FOR")
-            throw new Error(`ENDFOR の対応がありません（行 ${i + 1}）`);
-          prog.push({ op: "FOR_NEXT", forAt: top.at, srcLine: i + 1 });
+          if (!top || top.type !== "FOR") {
+            throw new Error(`ENDFOR の対応がありません（行 ${srcLine}）`);
+          }
+          prog.push({ op: "FOR_NEXT", forAt: top.at, srcLine });
           prog[top.at].jmpAfter = prog.length;
           continue;
         }
@@ -518,16 +591,17 @@ PRINT sum
             op: "WHILE",
             cond: mWhile[1],
             jmpFalse: null,
-            srcLine: i + 1,
+            srcLine,
           });
           stack.push({ type: "WHILE", at: prog.length - 1 });
           continue;
         }
         if (mEndWhile) {
           const top = stack.pop();
-          if (!top || top.type !== "WHILE")
-            throw new Error(`ENDWHILE の対応がありません（行 ${i + 1}）`);
-          prog.push({ op: "JMP", to: top.at, srcLine: i + 1 });
+          if (!top || top.type !== "WHILE") {
+            throw new Error(`ENDWHILE の対応がありません（行 ${srcLine}）`);
+          }
+          prog.push({ op: "JMP", to: top.at, srcLine });
           prog[top.at].jmpFalse = prog.length;
           continue;
         }
@@ -535,25 +609,24 @@ PRINT sum
         // --- PRINT ---
         const mPrint = line.match(/^PRINT\s+(.+)$/i);
         if (mPrint) {
-          prog.push({ op: "PRINT", expr: mPrint[1], srcLine: i + 1 });
+          prog.push({ op: "PRINT", expr: mPrint[1], srcLine });
           continue;
         }
 
         // --- INPUT ---
         const mInput = line.match(/^INPUT\s+([A-Za-z_]\w*)$/i);
         if (mInput) {
-          prog.push({ op: "INPUT", varName: mInput[1], srcLine: i + 1 });
+          prog.push({ op: "INPUT", varName: mInput[1], srcLine });
           continue;
         }
 
-        // --- 配列初期化（A = [ 5, 2, 4, 1, 3 ] または A ← [ 5, 2, 4, 1, 3 ]） ---
+        // --- 配列初期化 ---
         const mArrInit = line.match(
           /^([A-Za-z_]\w*)\s*(?:←|=)\s*\[\s*(.+)\s*\]$/
         );
         if (mArrInit) {
           const arrName = mArrInit[1];
           const arrContent = mArrInit[2].trim();
-          // カンマ区切りの要素を抽出
           const elements = arrContent
             .split(",")
             .map((s) => s.trim())
@@ -562,7 +635,7 @@ PRINT sum
             op: "ASSIGN_ARR_INIT",
             arrName,
             elements,
-            srcLine: i + 1,
+            srcLine,
           });
           continue;
         }
@@ -577,7 +650,7 @@ PRINT sum
             arrName: mAssignArr[1],
             idx: mAssignArr[2],
             expr: mAssignArr[3],
-            srcLine: i + 1,
+            srcLine,
           });
           continue;
         }
@@ -589,12 +662,29 @@ PRINT sum
             op: "ASSIGN",
             varName: mAssign[1],
             expr: mAssign[2],
-            srcLine: i + 1,
+            srcLine,
           });
           continue;
         }
 
-        throw new Error(`解釈できない行があります（行 ${i + 1}）: ${line}`);
+        // --- 手続き呼び出し（文）: Name(...) ---
+        const mCall = line.match(/^([A-Za-z_]\w*)\s*\(\s*(.*?)\s*\)\s*$/);
+        if (mCall) {
+          const name = mCall[1];
+          const argsText = mCall[2] ?? "";
+          const upper = name.toUpperCase();
+          // 既存キーワードと衝突するものは除外
+          if (
+            ["IF", "FOR", "WHILE", "PRINT", "INPUT", "ENDIF", "ENDFOR", "ENDWHILE", "ELSE", "LENGTH", "TRUE", "FALSE", "RETURN", "PROCEDURE", "ENDPROCEDURE"].includes(upper)
+          ) {
+            throw new Error(`解釈できない行があります（行 ${srcLine}）: ${line}`);
+          }
+          const args = splitTopLevelArgs(argsText);
+          prog.push({ op: "CALL_STMT", name, args, srcLine });
+          continue;
+        }
+
+        throw new Error(`解釈できない行があります（行 ${srcLine}）: ${line}`);
       }
 
       if (stack.length) {
@@ -604,7 +694,43 @@ PRINT sum
       return prog;
     }
 
-    function createVM(program, inputText) {
+    // main と procedures をそれぞれ命令化して、1本にフラット化
+    const mainProg = parseItemsToProg(mainItems);
+
+    const procedures = Object.create(null);
+    const prog = [...mainProg];
+
+    for (const def of procDefs) {
+      if (procedures[def.name]) {
+        throw new Error(`手続き ${def.name} が重複定義されています（行 ${def.defLine}）`);
+      }
+      const bodyProg = parseItemsToProg(def.bodyItems);
+
+      // 手続き末尾に RETURN が無いなら暗黙RETURN（値なし）
+      if (bodyProg.length === 0 || bodyProg[bodyProg.length - 1].op !== "RETURN") {
+        bodyProg.push({ op: "RETURN", srcLine: def.defLine });
+      }
+
+      procedures[def.name] = {
+        params: def.params,
+        entry: prog.length,
+        defLine: def.defLine,
+      };
+      prog.push(...bodyProg);
+    }
+
+    return { prog, procedures };
+  }
+
+    function createVM(programOrParsed, inputText) {
+      // parseProgram() が { prog, procedures } を返す版に対応
+      const parsed = Array.isArray(programOrParsed)
+        ? { prog: programOrParsed, procedures: {} }
+        : programOrParsed;
+
+      const program = parsed.prog;
+      const procedures = parsed.procedures || {};
+
       const env = { vars: {}, arr: {}, kind: {} };
       const input = inputText
         .split("\n")
@@ -614,6 +740,12 @@ PRINT sum
       let pc = 0;
       let halted = false;
       const forEndMap = {};
+
+      // 手続き呼び出し（再帰）対応
+      const callStack = [];
+      const MAX_CALL_DEPTH = 2000;
+      const currentFrame = () =>
+        callStack.length ? callStack[callStack.length - 1] : null;
 
       function ensureKindVar(name, srcLine) {
         const k = env.kind[name];
@@ -639,12 +771,26 @@ PRINT sum
 
       function getVarWithLine(name, srcLine) {
         ensureKindVar(name, srcLine);
+        const frame = currentFrame();
+        if (frame && Object.prototype.hasOwnProperty.call(frame.locals, name)) {
+          return frame.locals[name];
+        }
         if (!(name in env.vars)) env.vars[name] = 0;
         return env.vars[name];
       }
 
       function setVarWithLine(name, value, srcLine) {
         ensureKindVar(name, srcLine);
+        const frame = currentFrame();
+        if (frame && Object.prototype.hasOwnProperty.call(frame.locals, name)) {
+          frame.locals[name] = value;
+          return;
+        }
+        // 手続き内で新規に代入した変数はローカルとして扱う（科目B寄せ）
+        if (frame && !(name in env.vars)) {
+          frame.locals[name] = value;
+          return;
+        }
         env.vars[name] = value;
       }
 
@@ -800,6 +946,48 @@ PRINT sum
             const cur = getVarWithLine(init.varName, init.srcLine) + 1;
             setVarWithLine(init.varName, cur, init.srcLine);
             pc = cur <= end ? ins.forAt + 1 : init.jmpAfter;
+            break;
+          }
+
+          case "CALL_STMT": {
+            const proc = procedures[ins.name];
+            if (!proc) {
+              throw new Error(
+                `未定義の手続き ${ins.name} を呼び出しました（行 ${ins.srcLine}）`
+              );
+            }
+            if (callStack.length >= MAX_CALL_DEPTH) {
+              throw new Error(
+                `再帰が深すぎます（>${MAX_CALL_DEPTH}）（行 ${ins.srcLine}）`
+              );
+            }
+
+            const args = ins.args.map((a) => evalExpr(a, ins.srcLine));
+            if (args.length !== proc.params.length) {
+              throw new Error(
+                `手続き ${ins.name} の引数個数が違います（期待 ${proc.params.length} / 実際 ${args.length}）（行 ${ins.srcLine}）`
+              );
+            }
+
+            const locals = {};
+            for (let i = 0; i < proc.params.length; i++) {
+              locals[proc.params[i]] = args[i];
+            }
+
+            callStack.push({ returnPc: pc + 1, locals, procName: ins.name });
+            pc = proc.entry;
+            break;
+          }
+
+          case "RETURN": {
+            if (callStack.length === 0) {
+              // main から RETURN した場合は停止扱い
+              halted = true;
+              pc = program.length;
+              break;
+            }
+            const frame = callStack.pop();
+            pc = frame.returnPc;
             break;
           }
 
