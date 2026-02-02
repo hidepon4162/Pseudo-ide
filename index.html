@@ -891,6 +891,8 @@ PRINT sum
     // ====== UI ======
     let vm = null;
     let program = null;
+    let lastParsedSource = null;
+    let isDirty = false;
 
     function render() {
       $("pcInfo").textContent = `PC: ${vm ? vm.pc : "-"}`;
@@ -898,8 +900,8 @@ PRINT sum
       const line = vm ? vm.getCurrentSrcLine() : null;
       $("lineInfo").textContent = `行: ${line ?? "-"}`;
 
-      $("stateInfo").textContent = `状態: ${vm ? (vm.halted ? "停止" : "実行中") : "-"
-        }`;
+      const baseState = vm ? (vm.halted ? "停止" : "実行中") : "-";
+      $("stateInfo").textContent = `状態: ${baseState}${isDirty ? "（未リセット）" : ""}`;
 
       $("out").textContent = vm ? vm.out : "";
       $("vars").textContent = vm ? vm.dumpVars() : "";
@@ -912,10 +914,13 @@ PRINT sum
       try {
         program = parseProgram($("code").value);
         vm = createVM(program, $("inp").value);
+        lastParsedSource = $("code").value;
+        isDirty = false;
         render();
       } catch (e) {
         vm = null;
         program = null;
+        isDirty = true;
         $("err").textContent = String(e.message || e);
         render();
       }
@@ -931,7 +936,7 @@ PRINT sum
     $("stepBtn").addEventListener("click", () => {
       $("err").textContent = "";
       try {
-        if (!vm) reset();
+        if (!vm || isDirty) reset();
         if (!vm) return;
         if (!vm.halted) vm.step();
         render();
@@ -944,7 +949,7 @@ PRINT sum
     $("runBtn").addEventListener("click", () => {
       $("err").textContent = "";
       try {
-        if (!vm) reset();
+        if (!vm || isDirty) reset();
         if (!vm) return;
         vm.run();
         render();
@@ -957,6 +962,12 @@ PRINT sum
     // スクロール追従
     codeEl.addEventListener("scroll", () => {
       if (vm) updateHighlight(vm.getCurrentSrcLine());
+    });
+
+    // コード編集で「未リセット」状態にする（実行/ステップ時に自動reset）
+    codeEl.addEventListener("input", () => {
+      isDirty = lastParsedSource !== codeEl.value;
+      render();
     });
 
     $("help").textContent = HELP_TEXT;
