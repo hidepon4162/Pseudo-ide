@@ -553,6 +553,9 @@ PRINT sum
         const mFor = line.match(
           /^FOR\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+TO\s+(.+)$/i
         );
+        const mForDownTo = line.match(
+          /^FOR\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+DOWNTO\s+(.+)$/i
+        );
         const mEndFor = line.match(/^ENDFOR$/i);
 
         const mWhile = line.match(/^WHILE\s+(.+)$/i);
@@ -655,13 +658,16 @@ PRINT sum
         }
 
         // --- FOR ---
-        if (mFor) {
-          const varName = mFor[1];
+        if (mFor || mForDownTo) {
+          const m = mFor || mForDownTo;
+          const varName = m[1];
+          const step = mForDownTo ? -1 : 1;
           prog.push({
             op: "FOR_INIT",
             varName,
-            start: mFor[2],
-            end: mFor[3],
+            start: m[2],
+            end: m[3],
+            step,
             jmpAfter: null,
             srcLine,
           });
@@ -1029,16 +1035,20 @@ PRINT sum
             const start = evalExpr(ins.start, ins.srcLine);
             const end = evalExpr(ins.end, ins.srcLine);
             setVarWithLine(ins.varName, start, ins.srcLine);
-            forEndMap[pc] = end;
-            pc = start <= end ? pc + 1 : ins.jmpAfter;
+            const step = Number(ins.step ?? 1);
+            forEndMap[pc] = { end, step };
+            pc =
+              step >= 0 ? (start <= end ? pc + 1 : ins.jmpAfter) : (start >= end ? pc + 1 : ins.jmpAfter);
             break;
           }
           case "FOR_NEXT": {
             const init = program[ins.forAt];
-            const end = forEndMap[ins.forAt];
-            const cur = getVarWithLine(init.varName, init.srcLine) + 1;
+            const st = forEndMap[ins.forAt] ?? { end: 0, step: 1 };
+            const end = st.end;
+            const step = st.step;
+            const cur = getVarWithLine(init.varName, init.srcLine) + step;
             setVarWithLine(init.varName, cur, init.srcLine);
-            pc = cur <= end ? ins.forAt + 1 : init.jmpAfter;
+            pc = step >= 0 ? (cur <= end ? ins.forAt + 1 : init.jmpAfter) : (cur >= end ? ins.forAt + 1 : init.jmpAfter);
             break;
           }
 
