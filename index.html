@@ -229,7 +229,30 @@ score ← 75
 IF score >= 60 THEN
   PRINT 1
 ENDIF
+--------------------
+■ 条件分岐（ELSEIF）
+x ← 2
+IF x = 1 THEN
+  PRINT 10
+ELSEIF x = 2 THEN
+  PRINT 20
+ELSE
+  PRINT 30
+ENDIF
+→ 出力: 20
 
+--------------------
+■ 手続き（PROCEDURE / RETURN / 再帰）
+PROCEDURE Countdown(n)
+  IF n = 0 THEN
+    RETURN
+  ENDIF
+  PRINT n
+  Countdown(n - 1)
+ENDPROCEDURE
+
+Countdown(3)
+→ 出力: 3, 2, 1
 --------------------
 ■ 繰り返し（FOR）
 sum ← 0
@@ -294,6 +317,26 @@ A = [ 5, 2, 4, 1, 3 ]
 PRINT A[1]
 PRINT A[2]
 PRINT A[3]
+
+# ELSEIFの例
+x ← 2
+IF x = 1 THEN
+  PRINT 10
+ELSEIF x = 2 THEN
+  PRINT 20
+ELSE
+  PRINT 30
+ENDIF
+
+# 手続き（再帰）の例
+PROCEDURE Countdown(n)
+  IF n = 0 THEN
+    RETURN
+  ENDIF
+  PRINT n
+  Countdown(n - 1)
+ENDPROCEDURE
+Countdown(3)
 
 # LENGTH関数（配列の要素数）
 PRINT LENGTH(A)
@@ -501,6 +544,9 @@ PRINT sum
         }
 
         const mIf = line.match(/^IF\s+(.+)\s+THEN$/i);
+        const mElseIf =
+          line.match(/^ELSEIF\s+(.+)\s+THEN$/i) ||
+          line.match(/^ELSIF\s+(.+)\s+THEN$/i);
         const mElse = line.match(/^ELSE$/i);
         const mEndIf = line.match(/^ENDIF$/i);
 
@@ -526,7 +572,43 @@ PRINT sum
             jmpFalse: null,
             srcLine,
           });
-          stack.push({ type: "IF", at: prog.length - 1, elseJmpAt: null });
+          const at = prog.length - 1;
+          stack.push({
+            type: "IF",
+            at, // 先頭IF
+            lastCondAt: at, // 直近の条件IF（ELSEIFで更新）
+            endJmps: [], // 分岐成立時に ENDIF の次へ飛ぶ JMP の一覧
+            elseSeen: false,
+            elseJmpAt: null, // 互換用（未使用）
+          });
+          continue;
+        }
+
+        // --- ELSEIF / ELSIF ---
+        if (mElseIf) {
+          const top = stack[stack.length - 1];
+          if (!top || top.type !== "IF") {
+            throw new Error(`ELSEIF の対応がありません（行 ${srcLine}）`);
+          }
+          if (top.elseSeen) {
+            throw new Error(`ELSE の後に ELSEIF は書けません（行 ${srcLine}）`);
+          }
+
+          // 直前の分岐が成立してここまで来た場合、ENDIFの次へ飛ぶ
+          const jmpIndex = prog.length;
+          prog.push({ op: "JMP", to: null, srcLine });
+          top.endJmps.push(jmpIndex);
+
+          // 直前の条件が偽の場合、この ELSEIF の条件評価へジャンプ
+          const newIfIndex = prog.length;
+          prog.push({
+            op: "IF",
+            cond: mElseIf[1],
+            jmpFalse: null,
+            srcLine,
+          });
+          prog[top.lastCondAt].jmpFalse = newIfIndex;
+          top.lastCondAt = newIfIndex;
           continue;
         }
 
@@ -536,12 +618,17 @@ PRINT sum
           if (!top || top.type !== "IF") {
             throw new Error(`ELSE の対応がありません（行 ${srcLine}）`);
           }
-          if (top.elseJmpAt != null) {
+          if (top.elseSeen) {
             throw new Error(`ELSE は IF ブロック内で1回だけです（行 ${srcLine}）`);
           }
-          prog[top.at].jmpFalse = prog.length + 1;
+          // THEN/ELSEIF 側が成立してここまで来た場合、ENDIFの次へ飛ぶ
+          const jmpIndex = prog.length;
           prog.push({ op: "JMP", to: null, srcLine });
-          top.elseJmpAt = prog.length - 1;
+          top.endJmps.push(jmpIndex);
+
+          // 直近の条件が偽のときに飛ぶ先＝ELSE直後（このJMP命令の次）
+          prog[top.lastCondAt].jmpFalse = jmpIndex + 1;
+          top.elseSeen = true;
           continue;
         }
 
@@ -552,10 +639,16 @@ PRINT sum
             throw new Error(`ENDIF の対応がありません（行 ${srcLine}）`);
           }
           const endPos = prog.length + 1; // NOP を積むので +1
-          if (top.elseJmpAt == null) {
-            prog[top.at].jmpFalse = endPos;
-          } else {
-            prog[top.elseJmpAt].to = endPos;
+          // ELSEが無い場合、最後の条件が偽なら ENDIF の次へ
+          if (!top.elseSeen) {
+            prog[top.lastCondAt].jmpFalse = endPos;
+          }
+
+          // 各分岐成立時に積んだ JMP を ENDIF の次へ
+          if (top.endJmps && top.endJmps.length) {
+            for (const jmpAt of top.endJmps) {
+              prog[jmpAt].to = endPos;
+            }
           }
           prog.push({ op: "NOP", srcLine });
           continue;
