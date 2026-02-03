@@ -49,6 +49,11 @@
       filter: brightness(1.05);
     }
 
+    a.btn {
+      text-decoration: none;
+      display: inline-block;
+    }
+
     .pill {
       padding: 4px 10px;
       border: 1px solid var(--line);
@@ -160,6 +165,7 @@
     <button class="btn" id="stepBtn">ステップ</button>
     <button class="btn" id="resetBtn">リセット</button>
     <button class="btn" id="helpBtn">使い方（先頭へ戻る）</button>
+    <a class="btn" id="sortLink" href="sort_examples.html" target="_blank" rel="noopener noreferrer">sort_examples を開く</a>
     <span class="pill" id="pcInfo">PC: -</span>
     <span class="pill" id="lineInfo">行: -</span>
     <span class="pill" id="stateInfo">状態: -</span>
@@ -442,6 +448,24 @@ ENDFOR
       //    後段の変数置換で A が getVar("A") に変換されて構文エラーになる
       expr = expr.replace(/"([^"\\]|\\.)*"/g, (m) => saveStr(m));
 
+      // 5) 整数除算演算子 // を Math.floor(...) に変換
+      //    変数置換の前に行うことで、シンプルな正規表現で対応可能
+      //    例: (left + right) // 2 → Math.floor((left + right) / 2)
+      //    括弧で囲まれた式を優先的にマッチ
+      let changed = true;
+      let iterations = 0;
+      while (changed && iterations < 10) {
+        const before = expr;
+        // 括弧で囲まれた式を優先的にマッチ（ネストにも対応）
+        expr = expr.replace(/(\([^()]*(?:\([^()]*(?:\([^()]*\)[^()]*)*\)[^()]*)*\)|[A-Za-z_]\w*(?:\[[^\]]+\])?|\d+(?:\.\d+)?)\s*\/\/\s*(\([^()]*(?:\([^()]*(?:\([^()]*\)[^()]*)*\)[^()]*)*\)|[A-Za-z_]\w*(?:\[[^\]]+\])?|\d+(?:\.\d+)?)/g, (match, left, right) => {
+          // 既に Math.floor で囲まれている場合はスキップ
+          if (match.includes("Math.floor")) return match;
+          return `Math.floor(${left} / ${right})`;
+        });
+        changed = (before !== expr);
+        iterations++;
+      }
+
       expr = expr.replace(/([^=!<>])=([^=])/g, "$1===$2");
 
       expr = expr.replace(/\b([A-Za-z_]\w*)\b/g, (m, name) => {
@@ -462,6 +486,9 @@ ENDFOR
             "FALSE",
             "NULL",
             "UNDEFINED",
+            // 整数除算（Math.floor）を使うため予約扱い
+            "MATH",
+            "FLOOR",
             "GETVAR",
             "GETARR",
             "GETLENGTH",
@@ -778,15 +805,15 @@ ENDFOR
           continue;
         }
 
-        // --- 手続き呼び出し（文）: Name(...) ---
-        const mCall = line.match(/^([A-Za-z_]\w*)\s*\(\s*(.*?)\s*\)\s*$/);
+        // --- 手続き呼び出し（文）: Name(...) または CALL Name(...) ---
+        const mCall = line.match(/^(?:CALL\s+)?([A-Za-z_]\w*)\s*\(\s*(.*?)\s*\)\s*$/i);
         if (mCall) {
           const name = mCall[1];
           const argsText = mCall[2] ?? "";
           const upper = name.toUpperCase();
           // 既存キーワードと衝突するものは除外
           if (
-            ["IF", "FOR", "WHILE", "PRINT", "INPUT", "ENDIF", "ENDFOR", "ENDWHILE", "ELSE", "LENGTH", "TRUE", "FALSE", "RETURN", "PROCEDURE", "ENDPROCEDURE"].includes(upper)
+            ["IF", "FOR", "WHILE", "PRINT", "INPUT", "ENDIF", "ENDFOR", "ENDWHILE", "ELSE", "LENGTH", "TRUE", "FALSE", "RETURN", "PROCEDURE", "ENDPROCEDURE", "CALL"].includes(upper)
           ) {
             throw new Error(`解釈できない行があります（行 ${srcLine}）: ${line}`);
           }
@@ -810,12 +837,29 @@ ENDFOR
 
     const procedures = Object.create(null);
     const prog = [...mainProg];
+    const mainEnd = prog.length; // メインの終端位置を記録
 
     for (const def of procDefs) {
       if (procedures[def.name]) {
         throw new Error(`手続き ${def.name} が重複定義されています（行 ${def.defLine}）`);
       }
       const bodyProg = parseItemsToProg(def.bodyItems);
+
+      // ★重要: 手続き内で生成したジャンプ先は「手続き先頭=0」基準。
+      // フラット化して prog に結合するため、ここで絶対アドレスへオフセットする。
+      const baseOffset = prog.length;
+      for (const ins of bodyProg) {
+        if (!ins || !ins.op) continue;
+        if (ins.op === "IF" || ins.op === "WHILE") {
+          if (typeof ins.jmpFalse === "number") ins.jmpFalse += baseOffset;
+        } else if (ins.op === "JMP") {
+          if (typeof ins.to === "number") ins.to += baseOffset;
+        } else if (ins.op === "FOR_INIT") {
+          if (typeof ins.jmpAfter === "number") ins.jmpAfter += baseOffset;
+        } else if (ins.op === "FOR_NEXT") {
+          if (typeof ins.forAt === "number") ins.forAt += baseOffset;
+        }
+      }
 
       // 手続き末尾に RETURN が無いなら暗黙RETURN（値なし）
       if (bodyProg.length === 0 || bodyProg[bodyProg.length - 1].op !== "RETURN") {
@@ -830,17 +874,18 @@ ENDFOR
       prog.push(...bodyProg);
     }
 
-    return { prog, procedures };
+    return { prog, procedures, mainEnd };
   }
 
     function createVM(programOrParsed, inputText) {
       // parseProgram() が { prog, procedures } を返す版に対応
       const parsed = Array.isArray(programOrParsed)
-        ? { prog: programOrParsed, procedures: {} }
+        ? { prog: programOrParsed, procedures: {}, mainEnd: programOrParsed.length }
         : programOrParsed;
 
       const program = parsed.prog;
       const procedures = parsed.procedures || {};
+      const mainEnd = parsed.mainEnd ?? program.length;
 
       const env = { vars: {}, arr: {}, kind: {} };
       const input = inputText
@@ -854,7 +899,7 @@ ENDFOR
 
       // 手続き呼び出し（再帰）対応
       const callStack = [];
-      const MAX_CALL_DEPTH = 2000;
+      const MAX_CALL_DEPTH = 10000; // マージソートなどの深い再帰に対応
       const currentFrame = () =>
         callStack.length ? callStack[callStack.length - 1] : null;
 
@@ -920,7 +965,7 @@ ENDFOR
 
       function getArr(name, idx, srcLine) {
         ensureKindArr(name, srcLine);
-        const i = Number(idx);
+        const i = Math.floor(Number(idx)); // 配列インデックスは整数に丸める
         if (!Number.isFinite(i)) {
           throw new Error(
             `配列添字が数値ではありません: ${name}[${idx}]（行 ${srcLine}）`
@@ -934,7 +979,7 @@ ENDFOR
 
       function setArr(name, idx, value, srcLine) {
         ensureKindArr(name, srcLine);
-        const i = Number(idx);
+        const i = Math.floor(Number(idx)); // 配列インデックスは整数に丸める
         if (!Number.isFinite(i)) {
           throw new Error(
             `配列添字が数値ではありません: ${name}[${idx}]（行 ${srcLine}）`
@@ -1110,7 +1155,12 @@ ENDFOR
             throw new Error(`未知の命令: ${ins.op}`);
         }
 
-        if (pc >= program.length) halted = true;
+        // メインのプログラムが終わったら停止（手続き呼び出し中でない場合）
+        if (callStack.length === 0 && pc >= mainEnd) {
+          halted = true;
+        } else if (pc >= program.length) {
+          halted = true;
+        }
       }
 
       function dumpVars() {
