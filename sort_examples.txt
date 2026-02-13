@@ -11,9 +11,9 @@
 A ← [ 7, 3, 9, 4, 6 ]
 N ← length(A)
 
-for i ← 1 TO N - 1
-  for j ← 1 TO N - i
-    if A[j] > A[j + 1] THEN
+for (i ← 1 to N - 1)
+  for (j ← 1 to N - i)
+    if (A[j] > A[j + 1])
       TEMP ← A[j]
       A[j] ← A[j + 1]
       A[j + 1] ← TEMP
@@ -21,7 +21,7 @@ for i ← 1 TO N - 1
   endfor
 endfor
 
-for k ← 1 TO N
+for (k ← 1 to N)
   print A[k]
 endfor
 
@@ -34,21 +34,21 @@ endfor
 A ← [ 7, 3, 9, 4, 6 ]
 N ← length(A)
 
-for i ← 1 TO N - 1
+for (i ← 1 to N - 1)
   MIN_POS ← i
-  for j ← i + 1 TO N
-    if A[j] < A[MIN_POS] THEN
+  for (j ← i + 1 to N)
+    if (A[j] < A[MIN_POS])
       MIN_POS ← j
     endif
   endfor
-  if MIN_POS != i THEN
+  if (MIN_POS != i)
     TEMP ← A[i]
     A[i] ← A[MIN_POS]
     A[MIN_POS] ← TEMP
   endif
 endfor
 
-for k ← 1 TO N
+for (k ← 1 to N)
   print A[k]
 endfor
 
@@ -61,17 +61,17 @@ endfor
 A ← [ 7, 3, 9, 4, 6 ]
 N ← length(A)
 
-for i ← 2 TO N
+for (i ← 2 to N)
   KEY ← A[i]
   j ← i - 1
-  while j >= 1 AND A[j] > KEY
+  while (j >= 1 AND A[j] > KEY)
     A[j + 1] ← A[j]
     j ← j - 1
   endwhile
   A[j + 1] ← KEY
 endfor
 
-for k ← 1 TO N
+for (k ← 1 to N)
   print A[k]
 endfor
 
@@ -87,12 +87,12 @@ N ← length(A)
 
 call QuickSort(1, N)
 
-for k ← 1 TO N
+for (k ← 1 to N)
   print A[k]
 endfor
 
 procedure QuickSort(left, right)
-  if left >= right THEN
+  if (left >= right)
     return
   endif
 
@@ -100,8 +100,8 @@ procedure QuickSort(left, right)
   pivot ← A[right]
   i ← left
 
-  for j ← left TO right - 1
-    if A[j] <= pivot THEN
+  for (j ← left to right - 1)
+    if (A[j] <= pivot)
       SWAP_TEMP ← A[i]
       A[i] ← A[j]
       A[j] ← SWAP_TEMP
@@ -114,10 +114,10 @@ procedure QuickSort(left, right)
   A[right] ← SWAP_TEMP
 
   # 再帰呼び出し（境界チェック付き）
-  if i - 1 > left THEN
+  if (i - 1 > left)
     call QuickSort(left, i - 1)
   endif
-  if i + 1 < right THEN
+  if (i + 1 < right)
     call QuickSort(i + 1, right)
   endif
 endprocedure
@@ -137,13 +137,13 @@ TEMP ← [ 0, 0, 0, 0, 0, 0 ]
 
 call MergeSort(1, N)
 
-for k ← 1 TO N
+for (k ← 1 to N)
   print A[k]
 endfor
 
 procedure MergeSort(left, right)
   # ベースケース: 要素が1つ以下の場合は終了
-  if left >= right THEN
+  if (left >= right)
     return
   endif
 
@@ -167,8 +167,8 @@ procedure Merge(left, mid, right)
   j ← mid + 1
   k ← left
 
-  while i <= mid AND j <= right
-    if A[i] <= A[j] THEN
+  while (i <= mid AND j <= right)
+    if (A[i] <= A[j])
       TEMP[k] ← A[i]
       i ← i + 1
     else
@@ -178,19 +178,19 @@ procedure Merge(left, mid, right)
     k ← k + 1
   endwhile
 
-  while i <= mid
+  while (i <= mid)
     TEMP[k] ← A[i]
     i ← i + 1
     k ← k + 1
   endwhile
 
-  while j <= right
+  while (j <= right)
     TEMP[k] ← A[j]
     j ← j + 1
     k ← k + 1
   endwhile
 
-  for m ← left TO right
+  for (m ← left to right)
     A[m] ← TEMP[m]
   endfor
 endprocedure
@@ -203,20 +203,20 @@ endprocedure
 A ← [ 7, 3, 9, 4, 6 ]
 N ← length(A)
 
-for i ← 1 TO N - 1
+for (i ← 1 to N - 1)
   MAX_POS ← i
-  for j ← i + 1 TO N
-    if A[j] > A[MAX_POS] THEN
+  for (j ← i + 1 to N)
+    if (A[j] > A[MAX_POS])
       MAX_POS ← j
     endif
   endfor
-  if MAX_POS ≠ i THEN
+  if (MAX_POS != i)
     TEMP ← A[i]
     A[i] ← A[MAX_POS]
     A[MAX_POS] ← TEMP
   endif
 endfor
 
-for k ← 1 TO N
+for (k ← 1 to N)
   print A[k]
 endfor

@@ -53,13 +53,15 @@ GitHub のリポジトリ画面で:
 - `x = 10` は **代入としては未対応**（比較として扱われます）  
   → 代入は `←` を使ってください
 
-### 条件分岐
-- `if ... THEN` / `elseif ... THEN` / `else` / `endif`
+### 条件分岐（IPA形式：括弧必須）
+- `if (条件式)` / `elseif (条件式)` / `else` / `endif`
+- 従来形式 `if 条件式 THEN` も利用可
 
-### ループ
-- `for i ← 1 TO N` / `endfor`
-- `for i ← N DOWNTO 1` / `endfor`
-- `while cond` / `endwhile`
+### ループ（IPA形式：括弧必須）
+- `for (i ← 1 to N)` / `endfor`
+- `for (i ← N downto 1)` / `endfor`
+- `while (条件式)` / `endwhile`
+- 従来形式 `for i ← 1 TO N` も利用可
 
 ### 入出力
 - `print expr`

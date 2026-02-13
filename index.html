@@ -181,7 +181,7 @@
       </div>
 
       <div class="status">
-        対応: 代入 / if（elseif対応） / for（TO / DOWNTO） / while / print / input / 手続き（procedure / return） / 配列(A[i])（1始まり） / 配列初期化(A = [ 5, 2, 4, 1, 3 ]) / length(A)（要素数）
+        対応: 代入 / if(条件)・elseif(条件) / for(制御)・while(条件)（IPA形式） / print / input / 手続き / 配列(A[i])（1始まり） / length(A)
         <br />
         科目B寄せ: 未代入=0 / 添字は1以上 / 変数と配列の同名は禁止 /
         配列名をスカラとして使うとエラー
@@ -230,17 +230,17 @@ b ← 20
 print a + b
 
 --------------------
-■ 条件分岐（if）
+■ 条件分岐（if）※IPA形式: 括弧で条件を囲む
 score ← 75
-if score >= 60 THEN
+if (score >= 60)
   print 1
 endif
 --------------------
 ■ 条件分岐（elseif）
 x ← 2
-if x = 1 THEN
+if (x = 1)
   print 10
-elseif x = 2 THEN
+elseif (x = 2)
   print 20
 else
   print 30
@@ -250,7 +250,7 @@ endif
 --------------------
 ■ 手続き（procedure / return / 再帰）
 procedure Countdown(n)
-  if n = 0 THEN
+  if (n = 0)
     return
   endif
   print n
@@ -260,17 +260,17 @@ endprocedure
 Countdown(3)
 → 出力: 3, 2, 1
 --------------------
-■ 繰り返し（for）
+■ 繰り返し（for）※IPA形式: 括弧で制御記述を囲む
 sum ← 0
-for i ← 1 TO 5
+for (i ← 1 to 5)
   sum ← sum + i
 endfor
 print sum
 → 出力: 15
 
 --------------------
-■ 繰り返し（for / DOWNTO）
-for i ← 5 DOWNTO 1
+■ 繰り返し（for / downto）
+for (i ← 5 downto 1)
   print i
 endfor
 → 出力: 5, 4, 3, 2, 1
@@ -306,7 +306,7 @@ print length(A)
 
 # for文と組み合わせ（超頻出パターン）
 A = [ 10, 20, 30 ]
-for i ← 1 TO length(A)
+for (i ← 1 to length(A))
   print A[i]
 endfor
 → 出力: 10, 20, 30
@@ -331,11 +331,11 @@ print A[1]
 print A[2]
 print A[3]
 
-# elseifの例
+# elseifの例（IPA形式: 括弧で条件を囲む）
 x ← 2
-if x = 1 THEN
+if (x = 1)
   print 10
-elseif x = 2 THEN
+elseif (x = 2)
   print 20
 else
   print 30
@@ -343,7 +343,7 @@ endif
 
 # 手続き（再帰）の例
 procedure Countdown(n)
-  if n = 0 THEN
+  if (n = 0)
     return
   endif
   print n
@@ -354,8 +354,8 @@ Countdown(3)
 # length関数（配列の要素数）
 print length(A)
 
-# for文とlengthの組み合わせ（科目B頻出）
-for i ← 1 TO length(A)
+# for文とlengthの組み合わせ（科目B頻出・IPA形式）
+for (i ← 1 to length(A))
   print A[i]
 endfor
 
@@ -367,13 +367,13 @@ print B[3]
 
 # forの動作確認（15）
 sum ← 0
-for i ← 1 TO 5
+for (i ← 1 to 5)
   sum ← sum + i
 endfor
 print sum
 
-# DOWNTO の動作確認（5→1）
-for i ← 5 DOWNTO 1
+# downto の動作確認（5→1）
+for (i ← 5 downto 1)
   print i
 endfor
 `;
@@ -582,23 +582,32 @@ endfor
           throw new Error(`手続き定義の入れ子は未対応です（行 ${srcLine}）`);
         }
 
-        const mIf = line.match(/^IF\s+(.+)\s+THEN$/i);
+        // if: if (条件式) または if 条件式 THEN（IPA形式・従来形式両対応）
+        const mIf =
+          line.match(/^if\s*\(\s*(.+)\s*\)\s*$/i) ||
+          line.match(/^if\s+(.+)\s+then$/i);
         const mElseIf =
-          line.match(/^ELSEIF\s+(.+)\s+THEN$/i) ||
-          line.match(/^ELSIF\s+(.+)\s+THEN$/i);
-        const mElse = line.match(/^ELSE$/i);
-        const mEndIf = line.match(/^ENDIF$/i);
+          line.match(/^elseif\s*\(\s*(.+)\s*\)\s*$/i) ||
+          line.match(/^elseif\s+(.+)\s+then$/i) ||
+          line.match(/^elsif\s*\(\s*(.+)\s*\)\s*$/i) ||
+          line.match(/^elsif\s+(.+)\s+then$/i);
+        const mElse = line.match(/^else\s*$/i);
+        const mEndIf = line.match(/^endif\s*$/i);
 
-        const mFor = line.match(
-          /^FOR\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+TO\s+(.+)$/i
-        );
-        const mForDownTo = line.match(
-          /^FOR\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+DOWNTO\s+(.+)$/i
-        );
-        const mEndFor = line.match(/^ENDFOR$/i);
+        // for: for (i ← 0 to 2) または for i ← 1 TO N（IPA形式・従来形式両対応）
+        const mFor =
+          line.match(/^for\s*\(\s*([A-Za-z_]\w*)\s*←\s*(.+)\s+to\s+(.+)\s*\)\s*$/i) ||
+          line.match(/^for\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+to\s+(.+)$/i);
+        const mForDownTo =
+          line.match(/^for\s*\(\s*([A-Za-z_]\w*)\s*←\s*(.+)\s+downto\s+(.+)\s*\)\s*$/i) ||
+          line.match(/^for\s+([A-Za-z_]\w*)\s*←\s*(.+)\s+downto\s+(.+)$/i);
+        const mEndFor = line.match(/^endfor\s*$/i);
 
-        const mWhile = line.match(/^WHILE\s+(.+)$/i);
-        const mEndWhile = line.match(/^ENDWHILE$/i);
+        // while: while (条件式) または while 条件式（IPA形式・従来形式両対応）
+        const mWhile =
+          line.match(/^while\s*\(\s*(.+)\s*\)\s*$/i) ||
+          line.match(/^while\s+(.+)$/i);
+        const mEndWhile = line.match(/^endwhile\s*$/i);
 
         // --- RETURN（値なし） ---
         if (/^RETURN$/i.test(line)) {
