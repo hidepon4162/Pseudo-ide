@@ -9,21 +9,21 @@
 # 時間計算量: O(n²)
 
 A ← [ 7, 3, 9, 4, 6 ]
-N ← LENGTH(A)
+N ← length(A)
 
-FOR i ← 1 TO N - 1
-  FOR j ← 1 TO N - i
-    IF A[j] > A[j + 1] THEN
+for i ← 1 TO N - 1
+  for j ← 1 TO N - i
+    if A[j] > A[j + 1] THEN
       TEMP ← A[j]
       A[j] ← A[j + 1]
       A[j + 1] ← TEMP
-    ENDIF
-  ENDFOR
-ENDFOR
+    endif
+  endfor
+endfor
 
-FOR k ← 1 TO N
-  PRINT A[k]
-ENDFOR
+for k ← 1 TO N
+  print A[k]
+endfor
 
 # ============================================
 # 2. 選択ソート（Selection Sort）
@@ -32,25 +32,25 @@ ENDFOR
 # 時間計算量: O(n²)
 
 A ← [ 7, 3, 9, 4, 6 ]
-N ← LENGTH(A)
+N ← length(A)
 
-FOR i ← 1 TO N - 1
+for i ← 1 TO N - 1
   MIN_POS ← i
-  FOR j ← i + 1 TO N
-    IF A[j] < A[MIN_POS] THEN
+  for j ← i + 1 TO N
+    if A[j] < A[MIN_POS] THEN
       MIN_POS ← j
-    ENDIF
-  ENDFOR
-  IF MIN_POS != i THEN
+    endif
+  endfor
+  if MIN_POS != i THEN
     TEMP ← A[i]
     A[i] ← A[MIN_POS]
     A[MIN_POS] ← TEMP
-  ENDIF
-ENDFOR
+  endif
+endfor
 
-FOR k ← 1 TO N
-  PRINT A[k]
-ENDFOR
+for k ← 1 TO N
+  print A[k]
+endfor
 
 # ============================================
 # 3. 挿入ソート（Insertion Sort）
@@ -59,21 +59,21 @@ ENDFOR
 # 時間計算量: O(n²) だが、実用的には高速
 
 A ← [ 7, 3, 9, 4, 6 ]
-N ← LENGTH(A)
+N ← length(A)
 
-FOR i ← 2 TO N
+for i ← 2 TO N
   KEY ← A[i]
   j ← i - 1
-  WHILE j >= 1 AND A[j] > KEY
+  while j >= 1 AND A[j] > KEY
     A[j + 1] ← A[j]
     j ← j - 1
-  ENDWHILE
+  endwhile
   A[j + 1] ← KEY
-ENDFOR
+endfor
 
-FOR k ← 1 TO N
-  PRINT A[k]
-ENDFOR
+for k ← 1 TO N
+  print A[k]
+endfor
 
 # ============================================
 # 4. クイックソート（Quick Sort）- Lomuto方式
@@ -83,44 +83,44 @@ ENDFOR
 # 注意: このアプリでは動作しますが、無限ループの可能性があるため注意が必要です
 
 A ← [ 7, 3, 9, 4, 6 ]
-N ← LENGTH(A)
+N ← length(A)
 
-CALL QuickSort(1, N)
+call QuickSort(1, N)
 
-FOR k ← 1 TO N
-  PRINT A[k]
-ENDFOR
+for k ← 1 TO N
+  print A[k]
+endfor
 
-PROCEDURE QuickSort(left, right)
-  IF left >= right THEN
-    RETURN
-  ENDIF
+procedure QuickSort(left, right)
+  if left >= right THEN
+    return
+  endif
 
   # Lomuto partition scheme
   pivot ← A[right]
   i ← left
 
-  FOR j ← left TO right - 1
-    IF A[j] <= pivot THEN
+  for j ← left TO right - 1
+    if A[j] <= pivot THEN
       SWAP_TEMP ← A[i]
       A[i] ← A[j]
       A[j] ← SWAP_TEMP
       i ← i + 1
-    ENDIF
-  ENDFOR
+    endif
+  endfor
 
   SWAP_TEMP ← A[i]
   A[i] ← A[right]
   A[right] ← SWAP_TEMP
 
   # 再帰呼び出し（境界チェック付き）
-  IF i - 1 > left THEN
-    CALL QuickSort(left, i - 1)
-  ENDIF
-  IF i + 1 < right THEN
-    CALL QuickSort(i + 1, right)
-  ENDIF
-ENDPROCEDURE
+  if i - 1 > left THEN
+    call QuickSort(left, i - 1)
+  endif
+  if i + 1 < right THEN
+    call QuickSort(i + 1, right)
+  endif
+endprocedure
 
 # ============================================
 # 5. マージソート（Merge Sort）
@@ -130,22 +130,22 @@ ENDPROCEDURE
 # 注意: このアプリでは動作しますが、作業用配列が必要です
 
 A ← [ 7, 3, 9, 4, 6 ]
-N ← LENGTH(A)
+N ← length(A)
 
 # 作業用配列を初期化（配列は動的に作成される）
 TEMP ← [ 0, 0, 0, 0, 0, 0 ]
 
-CALL MergeSort(1, N)
+call MergeSort(1, N)
 
-FOR k ← 1 TO N
-  PRINT A[k]
-ENDFOR
+for k ← 1 TO N
+  print A[k]
+endfor
 
-PROCEDURE MergeSort(left, right)
+procedure MergeSort(left, right)
   # ベースケース: 要素が1つ以下の場合は終了
-  IF left >= right THEN
-    RETURN
-  ENDIF
+  if left >= right THEN
+    return
+  endif
 
   # mid の計算（整数除算で中央値を求める）
   # 例: left=1, right=5 → mid=3
@@ -153,47 +153,47 @@ PROCEDURE MergeSort(left, right)
   mid ← (left + right) // 2
   
   # 左半分をソート（left < mid が保証されている）
-  CALL MergeSort(left, mid)
+  call MergeSort(left, mid)
   
   # 右半分をソート（mid + 1 <= right が保証されている）
-  CALL MergeSort(mid + 1, right)
+  call MergeSort(mid + 1, right)
   
   # マージ処理
-  CALL Merge(left, mid, right)
-ENDPROCEDURE
+  call Merge(left, mid, right)
+endprocedure
 
-PROCEDURE Merge(left, mid, right)
+procedure Merge(left, mid, right)
   i ← left
   j ← mid + 1
   k ← left
 
-  WHILE i <= mid AND j <= right
-    IF A[i] <= A[j] THEN
+  while i <= mid AND j <= right
+    if A[i] <= A[j] THEN
       TEMP[k] ← A[i]
       i ← i + 1
-    ELSE
+    else
       TEMP[k] ← A[j]
       j ← j + 1
-    ENDIF
+    endif
     k ← k + 1
-  ENDWHILE
+  endwhile
 
-  WHILE i <= mid
+  while i <= mid
     TEMP[k] ← A[i]
     i ← i + 1
     k ← k + 1
-  ENDWHILE
+  endwhile
 
-  WHILE j <= right
+  while j <= right
     TEMP[k] ← A[j]
     j ← j + 1
     k ← k + 1
-  ENDWHILE
+  endwhile
 
-  FOR m ← left TO right
+  for m ← left TO right
     A[m] ← TEMP[m]
-  ENDFOR
-ENDPROCEDURE
+  endfor
+endprocedure
 
 # ============================================
 # 6. 降順ソート（Selection Sort使用）
@@ -201,22 +201,22 @@ ENDPROCEDURE
 # 大きい順に並べ替える
 
 A ← [ 7, 3, 9, 4, 6 ]
-N ← LENGTH(A)
+N ← length(A)
 
-FOR i ← 1 TO N - 1
+for i ← 1 TO N - 1
   MAX_POS ← i
-  FOR j ← i + 1 TO N
-    IF A[j] > A[MAX_POS] THEN
+  for j ← i + 1 TO N
+    if A[j] > A[MAX_POS] THEN
       MAX_POS ← j
-    ENDIF
-  ENDFOR
-  IF MAX_POS ≠ i THEN
+    endif
+  endfor
+  if MAX_POS ≠ i THEN
     TEMP ← A[i]
     A[i] ← A[MAX_POS]
     A[MAX_POS] ← TEMP
-  ENDIF
-ENDFOR
+  endif
+endfor
 
-FOR k ← 1 TO N
-  PRINT A[k]
-ENDFOR
+for k ← 1 TO N
+  print A[k]
+endfor

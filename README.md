@@ -54,28 +54,28 @@ GitHub のリポジトリ画面で:
   → 代入は `←` を使ってください
 
 ### 条件分岐
-- `IF ... THEN` / `ELSEIF ... THEN` / `ELSE` / `ENDIF`
+- `if ... THEN` / `elseif ... THEN` / `else` / `endif`
 
 ### ループ
-- `FOR i ← 1 TO N` / `ENDFOR`
-- `FOR i ← N DOWNTO 1` / `ENDFOR`
-- `WHILE cond` / `ENDWHILE`
+- `for i ← 1 TO N` / `endfor`
+- `for i ← N DOWNTO 1` / `endfor`
+- `while cond` / `endwhile`
 
 ### 入出力
-- `PRINT expr`
-- `INPUT x`（右下の入力欄から改行区切りで供給）
+- `print expr`
+- `input x`（右下の入力欄から改行区切りで供給）
 
 ### 配列（1始まり）
 - 参照: `A[i]`
 - 代入: `A[i] ← expr`
 - 初期化: `A ← [ 5, 2, 4, 1, 3 ]`
-- 長さ: `N ← LENGTH(A)`  
+- 長さ: `N ← length(A)`  
   ※「最大添字」を要素数として扱います（1始まり前提）
 
 ### 手続き（再帰対応）
-- 定義: `PROCEDURE Name(a, b)` ... `ENDPROCEDURE`
-- 呼び出し: `CALL Name(x, y)`
-- 戻り: `RETURN`（値なし）
+- 定義: `procedure Name(a, b)` ... `endprocedure`
+- 呼び出し: `call Name(x, y)`
+- 戻り: `return`（値なし）
 
 ---
 

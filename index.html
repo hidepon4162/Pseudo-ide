@@ -181,7 +181,7 @@
       </div>
 
       <div class="status">
-        対応: 代入 / IF（ELSEIF対応） / FOR（TO / DOWNTO） / WHILE / PRINT / INPUT / 手続き（PROCEDURE / RETURN） / 配列(A[i])（1始まり） / 配列初期化(A = [ 5, 2, 4, 1, 3 ]) / LENGTH(A)（要素数）
+        対応: 代入 / if（elseif対応） / for（TO / DOWNTO） / while / print / input / 手続き（procedure / return） / 配列(A[i])（1始まり） / 配列初期化(A = [ 5, 2, 4, 1, 3 ]) / length(A)（要素数）
         <br />
         科目B寄せ: 未代入=0 / 添字は1以上 / 変数と配列の同名は禁止 /
         配列名をスカラとして使うとエラー
@@ -203,7 +203,7 @@
       </div>
       <div class="row">
         <div class="card">
-          <h2>入力（INPUT 用。改行区切り）</h2>
+          <h2>入力（input 用。改行区切り）</h2>
           <textarea id="inp"></textarea>
         </div>
         <div class="card">
@@ -224,62 +224,62 @@
 3) 「実行」または「ステップ」で動かします（ステップは1命令ずつ）
 
 --------------------
-■ 代入と表示（PRINT）
+■ 代入と表示（print）
 a ← 10
 b ← 20
-PRINT a + b
+print a + b
 
 --------------------
-■ 条件分岐（IF）
+■ 条件分岐（if）
 score ← 75
-IF score >= 60 THEN
-  PRINT 1
-ENDIF
+if score >= 60 THEN
+  print 1
+endif
 --------------------
-■ 条件分岐（ELSEIF）
+■ 条件分岐（elseif）
 x ← 2
-IF x = 1 THEN
-  PRINT 10
-ELSEIF x = 2 THEN
-  PRINT 20
-ELSE
-  PRINT 30
-ENDIF
+if x = 1 THEN
+  print 10
+elseif x = 2 THEN
+  print 20
+else
+  print 30
+endif
 → 出力: 20
 
 --------------------
-■ 手続き（PROCEDURE / RETURN / 再帰）
-PROCEDURE Countdown(n)
-  IF n = 0 THEN
-    RETURN
-  ENDIF
-  PRINT n
+■ 手続き（procedure / return / 再帰）
+procedure Countdown(n)
+  if n = 0 THEN
+    return
+  endif
+  print n
   Countdown(n - 1)
-ENDPROCEDURE
+endprocedure
 
 Countdown(3)
 → 出力: 3, 2, 1
 --------------------
-■ 繰り返し（FOR）
+■ 繰り返し（for）
 sum ← 0
-FOR i ← 1 TO 5
+for i ← 1 TO 5
   sum ← sum + i
-ENDFOR
-PRINT sum
+endfor
+print sum
 → 出力: 15
 
 --------------------
-■ 繰り返し（FOR / DOWNTO）
-FOR i ← 5 DOWNTO 1
-  PRINT i
-ENDFOR
+■ 繰り返し（for / DOWNTO）
+for i ← 5 DOWNTO 1
+  print i
+endfor
 → 出力: 5, 4, 3, 2, 1
 
 --------------------
-■ 入力（INPUT）
-INPUT x
-INPUT y
-PRINT x * y
+■ 入力（input）
+input x
+input y
+print x * y
 入力欄の例:
 3
 4
@@ -289,32 +289,32 @@ PRINT x * y
 A[1] ← 10
 A[2] ← 20
 A[3] ← A[1] + A[2]
-PRINT A[3]
+print A[3]
 → 出力: 30
 
 ■ 配列の初期化（A = [ 5, 2, 4, 1, 3 ]）
 A = [ 5, 2, 4, 1, 3 ]
 # または A ← [ 5, 2, 4, 1, 3 ]
-PRINT A[1]
-PRINT A[3]
+print A[1]
+print A[3]
 → 出力: 5, 4
 
-■ LENGTH関数（配列の要素数を返す）
+■ length関数（配列の要素数を返す）
 A = [ 5, 2, 4, 1, 3 ]
-PRINT LENGTH(A)
+print length(A)
 → 出力: 5
 
-# FOR文と組み合わせ（超頻出パターン）
+# for文と組み合わせ（超頻出パターン）
 A = [ 10, 20, 30 ]
-FOR i ← 1 TO LENGTH(A)
-  PRINT A[i]
-ENDFOR
+for i ← 1 TO length(A)
+  print A[i]
+endfor
 → 出力: 10, 20, 30
 
 補足:
 - 代入は「←」です（= も使用可能）
 - 比較: = != < <= > >=
-- 論理: AND OR NOT（TRUE/FALSE） / XOR（0/1の排他的論理和。TRUE/FALSE でも可、結果は 0/1）
+- 論理: and or not（true/false） / xor（0/1の排他的論理和。true/false でも可、結果は 0/1）
 
 科目B寄せルール:
 - 未代入の変数・配列要素は 0 として扱います
@@ -327,55 +327,55 @@ ENDFOR
 
     $("code").value = `# 配列の初期化
 A = [ 5, 2, 4, 1, 3 ]
-PRINT A[1]
-PRINT A[2]
-PRINT A[3]
+print A[1]
+print A[2]
+print A[3]
 
-# ELSEIFの例
+# elseifの例
 x ← 2
-IF x = 1 THEN
-  PRINT 10
-ELSEIF x = 2 THEN
-  PRINT 20
-ELSE
-  PRINT 30
-ENDIF
+if x = 1 THEN
+  print 10
+elseif x = 2 THEN
+  print 20
+else
+  print 30
+endif
 
 # 手続き（再帰）の例
-PROCEDURE Countdown(n)
-  IF n = 0 THEN
-    RETURN
-  ENDIF
-  PRINT n
+procedure Countdown(n)
+  if n = 0 THEN
+    return
+  endif
+  print n
   Countdown(n - 1)
-ENDPROCEDURE
+endprocedure
 Countdown(3)
 
-# LENGTH関数（配列の要素数）
-PRINT LENGTH(A)
+# length関数（配列の要素数）
+print length(A)
 
-# FOR文とLENGTHの組み合わせ（科目B頻出）
-FOR i ← 1 TO LENGTH(A)
-  PRINT A[i]
-ENDFOR
+# for文とlengthの組み合わせ（科目B頻出）
+for i ← 1 TO length(A)
+  print A[i]
+endfor
 
 # 配列の動作確認（未代入は0）
 B[1] ← 10
 B[2] ← 20
 B[3] ← B[1] + B[2]
-PRINT B[3]
+print B[3]
 
-# FORの動作確認（15）
+# forの動作確認（15）
 sum ← 0
-FOR i ← 1 TO 5
+for i ← 1 TO 5
   sum ← sum + i
-ENDFOR
-PRINT sum
+endfor
+print sum
 
 # DOWNTO の動作確認（5→1）
-FOR i ← 5 DOWNTO 1
-  PRINT i
-ENDFOR
+for i ← 5 DOWNTO 1
+  print i
+endfor
 `;
 
     $("inp").value = "";
